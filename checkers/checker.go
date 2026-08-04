@@ -101,6 +101,9 @@ func (c *Checker) checkStmt(code p.Node) {
 
 		if n.Value != nil {
 			value := c.checkExpr(n.Value)
+			if value == nil {
+				return
+			}
 
 			if typ != nil && !value.IsAssignableTo(typ) {
 				c.error(n.Var, "Cannot assign '%s' to '%s'.", value.Name(), typ.Name())
@@ -130,6 +133,7 @@ func (c *Checker) checkStmt(code p.Node) {
 		if expr == nil {
 			return
 		}
+
 		if !expr.Kind().OneOf(TKNumber) {
 			c.error(n.Expr, "Expected number, got '%s'.", expr.Name())
 		}
@@ -144,11 +148,19 @@ func (c *Checker) checkStmt(code p.Node) {
 }
 
 func (c *Checker) checkExpr(code p.Expression) Type {
+	if code == nil {
+		panic(fmt.Sprintf("NULL code AT checkExpr: %s", code))
+	}
+
 	switch n := code.(type) {
 	case *p.ExprGroup:
 		return c.checkExpr(n.Value)
 	case *p.ExprArray:
 		main_type := c.checkExpr(n.Fields[0])
+		if main_type == nil {
+			return nil
+		}
+
 		for _, field := range n.Fields[1:] {
 			if !main_type.IsAssignableTo(c.checkExpr(field)) {
 				c.error(field, "Mixing types in array ('%s' vs '%s').", main_type.Name(), c.checkExpr(field).Name())
@@ -169,6 +181,10 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			return nil
 		}
 		expr_type := c.checkExpr(n.Value)
+		if expr_type == nil {
+			return nil
+		}
+
 		if !expr_type.IsAssignableTo(c.ts_vars.Get(n.Var.Name)) {
 			c.error(n.Value, "Type '%s' is not assignable to '%s'.", expr_type.Name(), c.ts_vars.Get(n.Var.Name).Name())
 		}
@@ -176,7 +192,14 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 		return expr_type
 	case *p.ExprBinary:
 		left := c.checkExpr(n.Left)
+		if left == nil {
+			return nil
+		}
 		right := c.checkExpr(n.Right)
+		if right == nil {
+			return nil
+		}
+
 		if !left.Kind().OneOf(TKNumber, TKString, TKBool) || !left.Kind().OneOf(right.Kind()) {
 			c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
 		}
@@ -184,6 +207,10 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 		return left
 	case *p.ExprUnary:
 		value := c.checkExpr(n.Value)
+		if value == nil {
+			return nil
+		}
+
 		if !value.Kind().OneOf(TKNumber, TKBool) {
 			c.error(n.Value, "Expected number or bool, got '%s'.", value.Name())
 		}
@@ -194,7 +221,14 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 
 	case *p.ExprArrayAccess:
 		array_type := c.checkExpr(n.Array)
+		if array_type == nil {
+			return nil
+		}
 		index_type := c.checkExpr(n.Index)
+		if index_type == nil {
+			return nil
+		}
+
 		if !index_type.Kind().OneOf(TKNumber) {
 			c.errorEnd(n.Index, "Index must be number. Got '%s'.", index_type.Name())
 		}
