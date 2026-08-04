@@ -25,52 +25,61 @@ var (
 	NumberType = TypeNumber{}
 	BoolType   = TypeBool{}
 	StringType = TypeString{}
-	TupleType  = TypeArray{}
+	ArrayType  = &TypeArray{}
 )
 
 type Type interface {
 	Name() string
 	Kind() TypeKind
 	HasFields() bool
-	SetFields(fields []Type)
+	SetFields(fields []Type) error
 	HasReturns() bool
-	SetReturns(returns []Type)
+	SetReturns(returns []Type) error
 	IsAssignableTo(other Type) bool
 }
 
 type TypeNumber struct{}
 
-func (n TypeNumber) Kind() TypeKind            { return TKNumber }
-func (n TypeNumber) Name() string              { return "Num" }
-func (n TypeNumber) HasFields() bool           { return false }
-func (n TypeNumber) SetFields(fields []Type)   { panic("No fields here") }
-func (n TypeNumber) HasReturns() bool          { return false }
-func (n TypeNumber) SetReturns(returns []Type) { panic("No returns here") }
+func (n TypeNumber) Kind() TypeKind                  { return TKNumber }
+func (n TypeNumber) Name() string                    { return "Num" }
+func (n TypeNumber) HasFields() bool                 { return false }
+func (n TypeNumber) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
+func (n TypeNumber) HasReturns() bool                { return false }
+func (n TypeNumber) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (n TypeNumber) IsAssignableTo(other Type) bool {
+	if other.Kind() == TKDefined {
+		return n.IsAssignableTo(other.(*TypeDefined).Underlying)
+	}
 	return other.Kind() == TKNumber
 }
 
 type TypeBool struct{}
 
-func (n TypeBool) Kind() TypeKind            { return TKBool }
-func (n TypeBool) Name() string              { return "Bool" }
-func (n TypeBool) HasFields() bool           { return false }
-func (n TypeBool) SetFields(fields []Type)   { panic("No fields here") }
-func (n TypeBool) HasReturns() bool          { return false }
-func (n TypeBool) SetReturns(returns []Type) { panic("No returns here") }
+func (n TypeBool) Kind() TypeKind                  { return TKBool }
+func (n TypeBool) Name() string                    { return "Bool" }
+func (n TypeBool) HasFields() bool                 { return false }
+func (n TypeBool) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
+func (n TypeBool) HasReturns() bool                { return false }
+func (n TypeBool) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (n TypeBool) IsAssignableTo(other Type) bool {
+	if other.Kind() == TKDefined {
+		return n.IsAssignableTo(other.(*TypeDefined).Underlying)
+	}
 	return other.Kind() == TKBool
 }
 
 type TypeString struct{}
 
-func (n TypeString) Kind() TypeKind            { return TKString }
-func (n TypeString) Name() string              { return "Str" }
-func (n TypeString) HasFields() bool           { return false }
-func (n TypeString) SetFields(fields []Type)   { panic("No fields here") }
-func (n TypeString) HasReturns() bool          { return false }
-func (n TypeString) SetReturns(returns []Type) { panic("No returns here") }
+func (n TypeString) Kind() TypeKind                  { return TKString }
+func (n TypeString) Name() string                    { return "Str" }
+func (n TypeString) HasFields() bool                 { return false }
+func (n TypeString) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
+func (n TypeString) HasReturns() bool                { return false }
+func (n TypeString) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (n TypeString) IsAssignableTo(other Type) bool {
+	if other.Kind() == TKDefined {
+		return n.IsAssignableTo(other.(*TypeDefined).Underlying)
+	}
 	return other.Kind() == TKString
 }
 
@@ -82,22 +91,26 @@ type TypeStruct struct {
 func (s *TypeStruct) Kind() TypeKind  { return TKStruct }
 func (s *TypeStruct) Name() string    { return s.TypeName }
 func (s *TypeStruct) HasFields() bool { return true }
-func (s *TypeStruct) SetFields(fields []Type) {
+func (s *TypeStruct) SetFields(fields []Type) error {
 	for _, field := range fields {
 		s.Fields[field.Name()] = field
 	}
+	return nil
 }
-func (s *TypeStruct) HasReturns() bool          { return false }
-func (s *TypeStruct) SetReturns(returns []Type) { panic("No returns here") }
-func (s *TypeStruct) IsAssignableTo(target Type) bool {
-	if target.Kind() != TKStruct {
+func (s *TypeStruct) HasReturns() bool                { return false }
+func (s *TypeStruct) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
+func (s *TypeStruct) IsAssignableTo(other Type) bool {
+	if other.Kind() == TKDefined {
+		return s.IsAssignableTo(other.(*TypeDefined).Underlying)
+	}
+	if other.Kind() != TKStruct {
 		return false
 	}
-	if s.Name() == target.Name() {
+	if s.Name() == other.Name() {
 		return true
 	}
 
-	t := target.(*TypeStruct)
+	t := other.(*TypeStruct)
 	for field, typ := range s.Fields {
 		if !typ.IsAssignableTo(t.Fields[field]) {
 			return false
@@ -110,17 +123,26 @@ type TypeArray struct {
 	ElemType Type
 }
 
-func (t TypeArray) Kind() TypeKind            { return TKArray }
-func (t TypeArray) Name() string              { return "Array" }
-func (t TypeArray) HasFields() bool           { return false }
-func (t TypeArray) SetFields(fields []Type)   { panic("No fields here") }
-func (t TypeArray) HasReturns() bool          { return false }
-func (t TypeArray) SetReturns(returns []Type) { panic("No returns here") }
-func (t TypeArray) IsAssignableTo(target Type) bool {
-	if target.Kind() != TKArray {
+func (t *TypeArray) Kind() TypeKind  { return TKArray }
+func (t *TypeArray) Name() string    { return "Array" }
+func (t *TypeArray) HasFields() bool { return true }
+func (t *TypeArray) SetFields(fields []Type) error {
+	if len(fields) != 1 {
+		return fmt.Errorf("Array type must have exactly one field (the element type).")
+	}
+	t.ElemType = fields[0]
+	return nil
+}
+func (t *TypeArray) HasReturns() bool                { return false }
+func (t *TypeArray) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
+func (t *TypeArray) IsAssignableTo(other Type) bool {
+	if other.Kind() == TKDefined {
+		return t.IsAssignableTo(other.(*TypeDefined).Underlying)
+	}
+	if other.Kind() != TKArray {
 		return false
 	}
-	if !t.ElemType.IsAssignableTo(target.(TypeArray).ElemType) {
+	if !t.ElemType.IsAssignableTo(other.(*TypeArray).ElemType) {
 		return false
 	}
 	return true
@@ -131,12 +153,12 @@ type TypeDefined struct {
 	Underlying Type
 }
 
-func (d *TypeDefined) Kind() TypeKind            { return TKDefined }
-func (d *TypeDefined) Name() string              { return d.TypeName }
-func (d *TypeDefined) HasFields() bool           { return false }
-func (d *TypeDefined) SetFields(fields []Type)   { panic("No fields here") }
-func (d *TypeDefined) HasReturns() bool          { return false }
-func (d *TypeDefined) SetReturns(returns []Type) { panic("No returns here") }
+func (d *TypeDefined) Kind() TypeKind                  { return TKDefined }
+func (d *TypeDefined) Name() string                    { return d.TypeName }
+func (d *TypeDefined) HasFields() bool                 { return false }
+func (d *TypeDefined) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
+func (d *TypeDefined) HasReturns() bool                { return false }
+func (d *TypeDefined) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (d *TypeDefined) IsAssignableTo(target Type) bool {
 	if d.Name() == target.Name() {
 		return true
@@ -183,7 +205,7 @@ type ValueArray struct {
 	Values []Value
 }
 
-func (v *ValueArray) Type() Type { return TupleType }
+func (v *ValueArray) Type() Type { return ArrayType }
 func (v *ValueArray) String() string {
 	fields := make([]string, 0, len(v.Values))
 	for _, val := range v.Values {

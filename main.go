@@ -18,7 +18,7 @@ func init_type_scope(ts *TypeScope) {
 	ts.Set(NumberType.Name(), NumberType)
 	ts.Set(BoolType.Name(), BoolType)
 	ts.Set(StringType.Name(), StringType)
-	ts.Set(TupleType.Name(), TupleType)
+	ts.Set(ArrayType.Name(), ArrayType)
 }
 
 func main() {

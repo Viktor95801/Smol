@@ -155,7 +155,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			}
 		}
 
-		return TypeArray{ElemType: main_type}
+		return &TypeArray{ElemType: main_type}
 	case *p.ExprVariable:
 		if !c.vs.Exists(n.Name) {
 			c.error(n, "Undefined variable '%s'.", n.Name)
@@ -202,7 +202,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			c.error(n.Array, "Expected indexed type, got '%s'.", array_type.Name())
 		}
 
-		return array_type.(TypeArray).ElemType
+		return array_type.(*TypeArray).ElemType
 
 	default:
 		panic(fmt.Sprintf("UNHANDLED CASE ON checkExpr(%s)", code))
@@ -235,7 +235,11 @@ func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.TypeExpression) T
 			}
 			fields = append(fields, field_typ)
 		}
-		typ.SetFields(fields)
+		err := typ.SetFields(fields)
+		if err != nil {
+			c.error(error_node, "Failed to set fields for type '%s': %v.", typ.Name(), err)
+			return nil
+		}
 	}
 
 	if len(type_expr.Returns) > 0 {
@@ -248,6 +252,10 @@ func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.TypeExpression) T
 			returns = append(returns, return_typ)
 		}
 		typ.SetReturns(returns)
+	}
+
+	for _, field := range type_expr.Fields {
+		println(field)
 	}
 
 	return typ
