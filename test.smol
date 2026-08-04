@@ -1,0 +1,5 @@
+let b := [34, 35, 0];
+println b[0], b[1];
+println b[0] + b[1];
+
+return b[2];

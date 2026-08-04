@@ -1,0 +1,31 @@
+print "Executing...";
+let a = 3;
+print a = a - 2, a = a + 2;
+{
+    let test : 2;
+    print test, a = a + test;
+}
+print a, true, false, Pi;
+print;
+if false {
+    print 1;
+}
+
+let test = 0;
+
+if false {
+    test = 2;
+} else if false {
+    let test2 : 1;
+    test = 2 + test2;
+} else {
+    let test2 : 1;
+    test = 5 - test2;
+}
+print test;
+
+if true {
+    return 0;
+} else {
+    return 1;
+}

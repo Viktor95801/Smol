@@ -1,0 +1,28 @@
+<program>    ::= <block>
+
+<block>      ::= { <statement> }
+
+<statement>  ::= ";"
+               | "{" <block> "}"
+               | "print" <expression> { "," <expression> } ";"
+               | "return" <expression> ";"
+               | "let" <IDENT> ( ":" | "=" ) <expression> ";"
+               | "if" <expression> "{" <block> "}" [ "else" ( "if" ... | "{" <block> "}" ) ]
+               | <expression> ";"
+
+<expression> ::= <assignment>
+
+<assignment> ::= <term> [ "=" <expression> ]
+
+<term>       ::= <factor> { ( "+" | "-" ) <factor> }
+
+<factor>     ::= <power> { ( "*" | "/" | "%" ) <power> }
+
+<power>      ::= <unary> [ "**" <unary> ]    ; Right-associative exponentiation
+
+<unary>      ::= ( "+" | "-" ) <unary>
+               | <primary>
+
+<primary>    ::= <NUMBER>
+               | <IDENT>
+               | "(" <expression> ")"
