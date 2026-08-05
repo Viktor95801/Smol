@@ -120,16 +120,27 @@ func (s *StmtReturn) Pos() (TokenPosition, TokenPosition) {
 type StmtAssign struct {
 	Start, End TokenPosition
 	Var        *ExprVariable
-	TypeExpr   *TypeExpression
+	TypeExpr   *ExprTypeRef
 	Value      Expression
 }
 
 func (s *StmtAssign) String() string {
-	assign := " = "
-	if s.Var.Const {
-		assign = " : "
+
+	assign := "="
+	if s.Var.IsConst {
+		assign = ":"
 	}
-	return "[var " + s.Var.String() + assign + s.Value.String() + "]"
+	typ_str := ""
+	if s.TypeExpr != nil {
+		typ_str = s.TypeExpr.String()
+	}
+
+	if s.Value == nil {
+		return "[var " + s.Var.String() + ":" + typ_str + "]"
+	} else {
+		val_str := s.Value.String()
+		return "[var " + s.Var.String() + ":" + typ_str + assign + val_str + "]"
+	}
 }
 
 func (s *StmtAssign) Pos() (TokenPosition, TokenPosition) {
@@ -153,6 +164,20 @@ func (s *StmtIf) String() string {
 }
 
 func (s *StmtIf) Pos() (TokenPosition, TokenPosition) {
+	return s.Start, s.End
+}
+
+type StmtDeclType struct {
+	Start, End TokenPosition
+	Name       string
+	TypeExpr   *ExprTypeRef
+}
+
+func (s *StmtDeclType) String() string {
+	return "[type " + s.Name + " " + s.TypeExpr.String() + "]"
+}
+
+func (s *StmtDeclType) Pos() (TokenPosition, TokenPosition) {
 	return s.Start, s.End
 }
 
@@ -229,9 +254,9 @@ func (s *ExprAssign) Pos() (TokenPosition, TokenPosition) {
 }
 
 type ExprVariable struct {
-	Where TokenPosition
-	Const bool
-	Name  string
+	Where   TokenPosition
+	IsConst bool
+	Name    string
 }
 
 func (e *ExprVariable) String() string {
@@ -277,15 +302,16 @@ func (e *ExprArray) Pos() (TokenPosition, TokenPosition) {
 	return e.Start, e.End
 }
 
-// Basic TypeExpression construct for declarations. E.g.: a: TypeExpression = Some Value...
-type TypeExpression struct {
-	Start, End TokenPosition
-	Name       string
-	Fields     []*TypeExpression
-	Returns    []*TypeExpression // specifically for function types
+// Basic ExprTypeRef construct for variable declarations and type declarations. E.g.: a: ExprTypeRef = Some Value...
+type ExprTypeRef struct {
+	Start, End    TokenPosition
+	IsDeclaration bool
+	Name          string
+	Fields        []*ExprTypeRef
+	Returns       []*ExprTypeRef // specifically for function types
 }
 
-func (t *TypeExpression) String() string {
+func (t *ExprTypeRef) String() string {
 	if len(t.Fields) == 0 && len(t.Returns) == 0 {
 		return t.Name
 	}
@@ -316,6 +342,6 @@ func (t *TypeExpression) String() string {
 	return sb.String()
 }
 
-func (t *TypeExpression) Pos() (TokenPosition, TokenPosition) {
+func (t *ExprTypeRef) Pos() (TokenPosition, TokenPosition) {
 	return t.Start, t.End
 }

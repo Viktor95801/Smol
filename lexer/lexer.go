@@ -129,6 +129,8 @@ var keywordMap = map[string]TokenKind{
 	"let":     KwLet,
 	"if":      KwIf,
 	"else":    KwElse,
+	"type":    KwType,
+	"struct":  KwStruct,
 }
 
 func (l *Lexer) lexIdent() bool {

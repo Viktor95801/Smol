@@ -15,7 +15,6 @@ type Checker struct {
 	file     *string
 	vs       *ValueScope
 	ts_types *TypeScope
-	ts_vars  *TypeScope
 }
 
 func NewChecker(file string, vs *ValueScope, ts *TypeScope) *Checker {
@@ -28,7 +27,6 @@ func (c *Checker) Init(file *string, vs *ValueScope, ts *TypeScope) {
 	c.file = file
 	c.vs = vs
 	c.ts_types = ts
-	c.ts_vars = NewTypeScope(ts)
 	c.Errors = make([]error, 0)
 }
 
@@ -74,17 +72,14 @@ func (c *Checker) checkStmt(code p.Node) {
 	case *p.StmtBlock:
 		parent_vs := c.vs
 		parent_ts_types := c.ts_types
-		parent_ts_vars := c.ts_vars
 
 		c.vs = NewValueScope(parent_vs)
 		c.ts_types = NewTypeScope(parent_ts_types)
-		c.ts_vars = NewTypeScope(parent_ts_vars)
 		for _, child := range n.Children {
 			c.Check(child)
 		}
 		c.vs = parent_vs
 		c.ts_types = parent_ts_types
-		c.ts_vars = parent_ts_vars
 	case *p.StmtAssign:
 		if c.vs.Exists(n.Var.Name) {
 			c.errorEnd(n.Var, "Variable '%s' already exists", n.Var.Name)
@@ -112,8 +107,7 @@ func (c *Checker) checkStmt(code p.Node) {
 			typ = value
 		}
 
-		c.vs.Mark(n.Var.Name, n.Var.Const)
-		c.ts_vars.Set(n.Var.Name, typ)
+		c.vs.Mark(n.Var.Name, n.Var.IsConst, typ)
 	case *p.StmtExpression:
 		c.checkExpr(n.Expr)
 	case *p.StmtIf:
@@ -173,8 +167,8 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			c.error(n, "Undefined variable '%s'.", n.Name)
 			return nil
 		}
-		n.Const = c.vs.IsConst(n.Name)
-		return c.ts_vars.Get(n.Name)
+		n.IsConst = c.vs.IsConst(n.Name)
+		return c.vs.Type(n.Name)
 	case *p.ExprAssign:
 		if !c.vs.Exists(n.Var.Name) {
 			c.error(n.Var, "Undefined variable '%s'.", n.Var.Name)
@@ -185,8 +179,8 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			return nil
 		}
 
-		if !expr_type.IsAssignableTo(c.ts_vars.Get(n.Var.Name)) {
-			c.error(n.Value, "Type '%s' is not assignable to '%s'.", expr_type.Name(), c.ts_vars.Get(n.Var.Name).Name())
+		if !expr_type.IsAssignableTo(c.vs.Type(n.Var.Name)) {
+			c.error(n.Value, "Type '%s' is not assignable to '%s'.", expr_type.Name(), c.vs.Type(n.Var.Name).Name())
 		}
 
 		return expr_type
@@ -243,7 +237,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 	}
 }
 
-func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.TypeExpression) Type {
+func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.ExprTypeRef) Type {
 	typ := c.ts_types.Get(type_expr.Name)
 	if typ == nil {
 		c.error(error_node, "Type '%s' not found.", type_expr.Name)
@@ -252,6 +246,11 @@ func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.TypeExpression) T
 
 	if !typ.HasFields() && len(type_expr.Fields) > 0 {
 		c.error(error_node, "Type '%s' does not have fields.", typ.Name())
+		return nil
+	}
+
+	if typ.HasFields() && len(type_expr.Fields) == 0 {
+		c.error(error_node, "Type '%s' has fields but none were provided.", typ.Name())
 		return nil
 	}
 
@@ -285,7 +284,11 @@ func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.TypeExpression) T
 			}
 			returns = append(returns, return_typ)
 		}
-		typ.SetReturns(returns)
+		err := typ.SetReturns(returns)
+		if err != nil {
+			c.error(error_node, "Failed to set returns for type '%s': %v.", typ.Name(), err)
+			return nil
+		}
 	}
 
 	return typ

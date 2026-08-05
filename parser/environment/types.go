@@ -18,6 +18,7 @@ const (
 	TKString
 	TKArray
 	TKStruct
+	TKFunction // TODO: Implement
 	TKDefined
 )
 

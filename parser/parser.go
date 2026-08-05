@@ -135,56 +135,15 @@ func (p *Parser) statement() (Statement, bool) {
 	}
 
 	if p.consume(TokLCurly) {
-		result, ok := p.stmt_block()
-		return result, ok
+		return p.stmt_block()
 	}
 
 	if p.consume(KwPrint, KwPrintln) {
-		is_println := false
-		if p.ptok.OneOf(KwPrintln) {
-			is_println = true
-		}
-
-		start := p.ptok.Pos
-
-		if p.consume(TokSemi) {
-			if !is_println {
-				p.note("Empty 'print' statement doesn't do anything.")
-			}
-			return &StmtPrint{IsPrintln: is_println, Start: start, End: p.ptok.Pos, Values: nil}, true
-		}
-		values := make([]Expression, 1)
-		expr, ok := p.expression()
-		if !ok {
-			return nil, false
-		}
-		values[0] = expr
-		for p.consume(TokComma) {
-			expr, ok = p.expression()
-			if !ok {
-				return nil, false
-			}
-			values = append(values, expr)
-		}
-		if !p.consume(TokSemi) {
-			p.error("Expected ';'.")
-			return nil, false
-		}
-		return &StmtPrint{IsPrintln: is_println, Start: start, End: p.ptok.Pos, Values: values}, true
+		return p.stmt_print()
 	}
 
 	if p.consume(KwReturn) {
-		start := p.ptok.Pos
-
-		expr, ok := p.expression()
-		if !ok {
-			return nil, false
-		}
-		if !p.consume(TokSemi) {
-			p.error("Expected ';'.")
-			return nil, false
-		}
-		return &StmtReturn{Start: start, End: p.ptok.Pos, Expr: expr}, true
+		return p.stmt_return()
 	}
 
 	if p.consume(KwLet) {
@@ -194,6 +153,10 @@ func (p *Parser) statement() (Statement, bool) {
 	if p.consume(KwIf) {
 		return p.stmt_if()
 	}
+
+	//if p.consume(KwType) {
+	//	return p.stmt_decl_type()
+	//}
 
 	start := p.ptok.Pos
 	expr, ok := p.expression()
@@ -211,6 +174,54 @@ func (p *Parser) statement() (Statement, bool) {
 		End:   p.ptok.Pos,
 		Expr:  expr,
 	}, true
+}
+
+func (p *Parser) stmt_print() (Statement, bool) {
+	is_println := false
+	if p.ptok.OneOf(KwPrintln) {
+		is_println = true
+	}
+
+	start := p.ptok.Pos
+
+	if p.consume(TokSemi) {
+		if !is_println {
+			p.note("Empty 'print' statement doesn't do anything.")
+		}
+		return &StmtPrint{IsPrintln: is_println, Start: start, End: p.ptok.Pos, Values: nil}, true
+	}
+	values := make([]Expression, 1)
+	expr, ok := p.expression()
+	if !ok {
+		return nil, false
+	}
+	values[0] = expr
+	for p.consume(TokComma) {
+		expr, ok = p.expression()
+		if !ok {
+			return nil, false
+		}
+		values = append(values, expr)
+	}
+	if !p.consume(TokSemi) {
+		p.error("Expected ';'.")
+		return nil, false
+	}
+	return &StmtPrint{IsPrintln: is_println, Start: start, End: p.ptok.Pos, Values: values}, true
+}
+
+func (p *Parser) stmt_return() (Statement, bool) {
+	start := p.ptok.Pos
+
+	expr, ok := p.expression()
+	if !ok {
+		return nil, false
+	}
+	if !p.consume(TokSemi) {
+		p.error("Expected ';'.")
+		return nil, false
+	}
+	return &StmtReturn{Start: start, End: p.ptok.Pos, Expr: expr}, true
 }
 
 func (p *Parser) stmt_block() (Statement, bool) {
@@ -249,31 +260,32 @@ func (p *Parser) stmt_assign() (Statement, bool) {
 		return nil, false
 	}
 
-	var type_expression *TypeExpression
+	var type_expression *ExprTypeRef
 	if !p.ctok.OneOf(TokAss, TokColon) {
 		var ok bool
 		type_expression, ok = p.type_expression()
 		if !ok {
 			return nil, false
 		}
+
+		if p.consume(TokSemi) {
+			return &StmtAssign{
+				Start: name.Pos,
+				End:   p.ptok.Pos,
+				Var: &ExprVariable{
+					Where:   name.Pos,
+					IsConst: false,
+					Name:    name.Literal,
+				},
+				Value:    nil,
+				TypeExpr: type_expression,
+			}, true
+		}
 	}
 
 	is_const := false
 	if p.consume(TokColon) {
 		is_const = true
-		/* } else if p.consume(TokSemi) {
-		variable := &ExprVariable{
-			Where: name.Pos,
-			Const: is_const,
-			Name:  name.Literal,
-		}
-		return &StmtAssign{
-			Start:    name.Pos,
-			End:      p.ptok.Pos,
-			Var:      variable,
-			TypeExpr: type_expression,
-			Value:    nil,
-			}, true */
 	} else if !p.consume(TokAss) {
 		p.error("Expected '='.")
 		return nil, false
@@ -290,9 +302,9 @@ func (p *Parser) stmt_assign() (Statement, bool) {
 	}
 
 	variable := &ExprVariable{
-		Where: name.Pos,
-		Const: is_const,
-		Name:  name.Literal,
+		Where:   name.Pos,
+		IsConst: is_const,
+		Name:    name.Literal,
 	}
 	return &StmtAssign{
 		Start:    name.Pos,
@@ -382,7 +394,7 @@ func (p *Parser) assignment() (Expression, bool) {
 			return nil, false
 		}
 
-		if variable.Const {
+		if variable.IsConst {
 			p.errorAt(error_token, "Assigning to constant variable '%s'.", variable.Name)
 			return nil, false
 		}
@@ -549,9 +561,9 @@ func (p *Parser) primary() (Expression, bool) {
 		result.Value = ValueString(p.ptok.Literal)
 	case TokIdent:
 		return &ExprVariable{
-			Where: p.ptok.Pos,
-			Const: false,
-			Name:  p.ptok.Literal,
+			Where:   p.ptok.Pos,
+			IsConst: false,
+			Name:    p.ptok.Literal,
 		}, true
 	case KwTrue, KwFalse:
 		result.Value = ValueBool(p.ptok.Kind == KwTrue)
@@ -591,8 +603,7 @@ func (p *Parser) primary() (Expression, bool) {
 	return result, true
 }
 
-func (p *Parser) type_expression() (*TypeExpression, bool) {
-	println("A")
+func (p *Parser) type_expression() (*ExprTypeRef, bool) {
 	if !p.consume(TokIdent) {
 		println(p.ptok.String(), p.ctok.String(), p.ntok.String())
 		p.error("Expected type name.")
@@ -600,7 +611,7 @@ func (p *Parser) type_expression() (*TypeExpression, bool) {
 	}
 	name := p.ptok
 
-	var fields []*TypeExpression = nil
+	var fields []*ExprTypeRef = nil
 	if p.consume(TokLBrack) {
 		for !p.consume(TokRBrack, TokEOF) {
 			typ, ok := p.type_expression()
@@ -618,16 +629,17 @@ func (p *Parser) type_expression() (*TypeExpression, bool) {
 			return nil, false
 		}
 
-		return &TypeExpression{
-			Start:   name.Pos,
-			End:     p.ptok.Pos,
-			Name:    name.Literal,
-			Fields:  fields,
-			Returns: nil,
+		return &ExprTypeRef{
+			Start:         name.Pos,
+			End:           p.ptok.Pos,
+			IsDeclaration: false,
+			Name:          name.Literal,
+			Fields:        fields,
+			Returns:       nil,
 		}, true
 	}
 
-	var returns []*TypeExpression = nil
+	var returns []*ExprTypeRef = nil
 	if p.consume(TokLBrack) {
 		for !p.consume(TokRBrack, TokEOF) {
 			typ, ok := p.type_expression()
@@ -645,20 +657,22 @@ func (p *Parser) type_expression() (*TypeExpression, bool) {
 			return nil, false
 		}
 
-		return &TypeExpression{
-			Start:   name.Pos,
-			End:     p.ptok.Pos,
-			Name:    name.Literal,
-			Fields:  fields,
-			Returns: returns,
+		return &ExprTypeRef{
+			Start:         name.Pos,
+			End:           p.ptok.Pos,
+			IsDeclaration: false,
+			Name:          name.Literal,
+			Fields:        fields,
+			Returns:       returns,
 		}, true
 	}
 
-	return &TypeExpression{
-		Start:   name.Pos,
-		End:     p.ptok.Pos,
-		Name:    name.Literal,
-		Fields:  nil,
-		Returns: nil,
+	return &ExprTypeRef{
+		Start:         name.Pos,
+		End:           p.ptok.Pos,
+		IsDeclaration: false,
+		Name:          name.Literal,
+		Fields:        nil,
+		Returns:       nil,
 	}, true
 }

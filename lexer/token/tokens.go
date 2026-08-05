@@ -66,6 +66,8 @@ const (
 	KwLet
 	KwIf
 	KwElse
+	KwType
+	KwStruct
 )
 
 var kindNames = [...]string{
@@ -95,6 +97,8 @@ var kindNames = [...]string{
 	KwIf:      "KwIf",
 	KwElse:    "KwElse",
 	KwLet:     "KwLet",
+	KwType:    "KwType",
+	KwStruct:  "KwStruct",
 	TokAss:    "TokAss",
 	TokColon:  "TokColon",
 }

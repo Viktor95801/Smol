@@ -80,10 +80,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	env = NewValueScope(env)
+	env = NewValueScope(nil)
 	init_environment(env)
+	ts = NewTypeScope(nil)
+	init_type_scope(ts)
 
-	error_code, err := parser.Interpret(code, env)
+	error_code, err := parser.Interpret(code, env, ts)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

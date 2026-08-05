@@ -8,7 +8,7 @@ import (
 	"math"
 )
 
-func Interpret(code Statement, env *ValueScope) (float64, error) {
+func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) {
 	if env == nil {
 		return 0, fmt.Errorf("Environment is nil.")
 	}
@@ -22,7 +22,7 @@ func Interpret(code Statement, env *ValueScope) (float64, error) {
 
 	case *Program:
 		for _, s := range stmt.Children {
-			exit_code, err := Interpret(s, env)
+			exit_code, err := Interpret(s, env, ts)
 			if err != nil {
 				return 0, err
 			}
@@ -34,8 +34,9 @@ func Interpret(code Statement, env *ValueScope) (float64, error) {
 
 	case *StmtBlock:
 		scope := NewValueScope(env)
+		tscope := NewTypeScope(ts)
 		for _, s := range stmt.Children {
-			exit_code, err := Interpret(s, scope)
+			exit_code, err := Interpret(s, scope, tscope)
 			if err != nil {
 				return 0, err
 			}
@@ -82,14 +83,17 @@ func Interpret(code Statement, env *ValueScope) (float64, error) {
 
 	case *StmtAssign:
 		var value Value = nil
+		var typ Type = nil
 		var err error = nil
 		if stmt.Value != nil {
 			value, err = Evaluate(stmt.Value, env)
+		} else {
+			typ, err = checkTypeExpr(*stmt.TypeExpr, ts)
 		}
 		if err != nil {
 			return 0, err
 		}
-		env.New(stmt.Var.Name, value, stmt.Var.Const)
+		env.New(stmt.Var.Name, value, stmt.Var.IsConst, typ)
 
 	case *StmtIf:
 		value, err := Evaluate(stmt.Condition, env)
@@ -103,13 +107,15 @@ func Interpret(code Statement, env *ValueScope) (float64, error) {
 
 		if value_bool {
 			scope := NewValueScope(env)
-			_, err = Interpret(stmt.If, scope)
+			tscope := NewTypeScope(ts)
+			_, err = Interpret(stmt.If, scope, tscope)
 			if err != nil {
 				return 0, err
 			}
 		} else if stmt.Else != nil {
 			scope := NewValueScope(env)
-			_, err = Interpret(stmt.Else, scope)
+			tscope := NewTypeScope(ts)
+			_, err = Interpret(stmt.Else, scope, tscope)
 			if err != nil {
 				return 0, err
 			}
@@ -171,7 +177,7 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 		}
 		return values[int(i)], nil
 	case *ExprAssign:
-		if e.Var.Const {
+		if e.Var.IsConst {
 			return nil, fmt.Errorf("Cannot assign a new value to a constant.")
 		}
 		if !env.Exists(e.Var.Name) {
@@ -263,4 +269,52 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 	default:
 		panic("Unknown node: " + expr.String())
 	}
+}
+
+// same function as in checkers
+func checkTypeExpr(type_expr ExprTypeRef, ts *TypeScope) (Type, error) {
+	typ := ts.Get(type_expr.Name)
+	if typ == nil {
+		return nil, fmt.Errorf("Type '%s' not found.", type_expr.Name)
+	}
+
+	if !typ.HasFields() && len(type_expr.Fields) > 0 {
+		return nil, fmt.Errorf("Type '%s' does not have fields.", typ.Name())
+	}
+
+	if !typ.HasReturns() && len(type_expr.Returns) > 0 {
+		return nil, fmt.Errorf("Type '%s' does not have returns.", typ.Name())
+	}
+
+	if len(type_expr.Fields) > 0 {
+		fields := make([]Type, 0, len(type_expr.Fields))
+		for _, field := range type_expr.Fields {
+			field_typ, err := checkTypeExpr(*field, ts)
+			if err != nil {
+				return nil, err
+			}
+			fields = append(fields, field_typ)
+		}
+		err := typ.SetFields(fields)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to set fields for type '%s': %v.", typ.Name(), err)
+		}
+	}
+
+	if len(type_expr.Returns) > 0 {
+		returns := make([]Type, 0, len(type_expr.Returns))
+		for _, return_expr := range type_expr.Returns {
+			return_typ, err := checkTypeExpr(*return_expr, ts)
+			if err != nil {
+				return nil, err
+			}
+			returns = append(returns, return_typ)
+		}
+		err := typ.SetReturns(returns)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to set returns for type '%s': %v.", typ.Name(), err)
+		}
+	}
+
+	return typ, nil
 }
