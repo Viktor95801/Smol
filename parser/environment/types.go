@@ -143,6 +143,7 @@ func (t *TypeArray) IsAssignableTo(other Type) bool {
 	if other.Kind() != TKArray {
 		return false
 	}
+	println(other.Kind())
 	if !t.ElemType.IsAssignableTo(other.(*TypeArray).ElemType) {
 		return false
 	}
@@ -212,7 +213,7 @@ func (v *ValueArray) String() string {
 	for _, val := range v.Values {
 		fields = append(fields, val.String())
 	}
-	return fmt.Sprintf("(%s)", strings.Join(fields, ", "))
+	return fmt.Sprintf("[%s]", strings.Join(fields, ", "))
 }
 
 type ValueDefined struct {

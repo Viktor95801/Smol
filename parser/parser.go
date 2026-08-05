@@ -564,23 +564,26 @@ func (p *Parser) unary() (Expression, bool) {
 			return nil, false
 		}
 
-		if p.consume(TokLBrack) {
-			index, ok := p.expression()
-			if !ok {
-				return nil, false
+		switch p.ctok.Kind {
+		case TokLBrack:
+			left := value
+			for p.consume(TokLBrack) {
+				index, ok := p.expression()
+				if !ok {
+					return nil, false
+				}
+				if !p.consume(TokRBrack) {
+					p.error("Expected ']'.")
+					return nil, false
+				}
+				left = &ExprArrayAccess{
+					Start: start, End: p.ptok.Pos,
+					Array: left, Index: index,
+				}
 			}
-			if !p.consume(TokRBrack) {
-				p.error("Expected ']'.")
-				return nil, false
-			}
-
-			return &ExprArrayAccess{
-				Start: start, End: p.ptok.Pos,
-				Array: value, Index: index,
-			}, true
-		} else {
-			return value, true
+			return left, true
 		}
+		return value, true
 	}
 
 	op := p.ctok
