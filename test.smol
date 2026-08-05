@@ -1,4 +1,5 @@
-let b: [[Num]] = [[34, 35, 0]];
+type arrarrnum [[Num]];
+let b: arrarrnum = [[34, 35, 0]];
 println b[0][0], b[0][1];
 println b[0][0] + b[0][1];
 

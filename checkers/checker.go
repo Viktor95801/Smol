@@ -99,8 +99,9 @@ func (c *Checker) checkStmt(code p.Node) {
 			if value == nil {
 				return
 			}
-
 			if typ != nil && !value.IsAssignableTo(typ) {
+				println(value.String())
+				println(typ.String())
 				c.error(n.Var, "Cannot assign '%s' to '%s'.", value.Name(), typ.Name())
 				return
 			}
@@ -243,7 +244,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 }
 
 func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.ExprTypeRef) Type {
-	typ := c.ts.Get(type_expr.Name)
+	typ := c.ts.Get(type_expr.Name).Copy()
 	if typ == nil {
 		c.error(error_node, "Type '%s' not found.", type_expr.Name)
 		return nil
@@ -254,7 +255,7 @@ func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.ExprTypeRef) Type
 		return nil
 	}
 
-	if typ.HasFields() && len(type_expr.Fields) == 0 {
+	if typ.HasFields() && typ.AmountFields() == 0 && len(type_expr.Fields) > 0 {
 		c.error(error_node, "Type '%s' has fields but none were provided.", typ.Name())
 		return nil
 	}
