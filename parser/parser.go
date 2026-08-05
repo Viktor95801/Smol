@@ -330,7 +330,7 @@ func (p *Parser) stmt_if() (Statement, bool) {
 		}, true
 	}
 
-	if !p.ctok.OneOf(KwIf) {
+	if p.ctok.OneOf(KwIf) {
 		else_block, ok := p.statement()
 		if !ok {
 			return nil, false

@@ -1,28 +1,27 @@
-print "Executing...";
-let a = 3;
-print a = a - 2, a = a + 2;
+println "Executing...";
+let a := 3;
+println a = a - 2, a = a + 2;
 {
-    let test : 2;
-    print test, a = a + test;
+    let test :: 2;
+    println test, a = a + test;
 }
-print a, true, false, Pi;
-print;
+println a, true, false, Pi;
 if false {
-    print 1;
+    println 1;
 }
 
-let test = 0;
+let test := 0;
 
 if false {
     test = 2;
 } else if false {
-    let test2 : 1;
+    let test2 :: 1;
     test = 2 + test2;
 } else {
-    let test2 : 1;
+    let test2 :: 1;
     test = 5 - test2;
 }
-print test;
+println test;
 
 if true {
     return 0;

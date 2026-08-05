@@ -288,9 +288,5 @@ func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.TypeExpression) T
 		typ.SetReturns(returns)
 	}
 
-	for _, field := range type_expr.Fields {
-		println(field)
-	}
-
 	return typ
 }
