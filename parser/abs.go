@@ -125,7 +125,6 @@ type StmtAssign struct {
 }
 
 func (s *StmtAssign) String() string {
-
 	assign := "="
 	if s.Var.IsConst {
 		assign = ":"
@@ -302,13 +301,42 @@ func (e *ExprArray) Pos() (TokenPosition, TokenPosition) {
 	return e.Start, e.End
 }
 
-// Basic ExprTypeRef construct for variable declarations and type declarations. E.g.: a: ExprTypeRef = Some Value...
-type ExprTypeRef struct {
+type ExprTypeStruct struct {
 	Start, End    TokenPosition
 	IsDeclaration bool
 	Name          string
-	Fields        []*ExprTypeRef
-	Returns       []*ExprTypeRef // specifically for function types
+	Fields        []StmtAssign
+}
+
+func (t *ExprTypeStruct) String() string {
+	if len(t.Fields) == 0 {
+		return t.Name
+	}
+
+	sb := strings.Builder{}
+	sb.WriteString(t.Name)
+	if len(t.Fields) > 0 {
+		sb.WriteByte('{')
+		for _, field := range t.Fields {
+			sb.WriteString(field.String())
+			sb.WriteByte(';')
+		}
+		sb.WriteByte('}')
+	}
+
+	return sb.String()
+}
+
+func (t *ExprTypeStruct) Pos() (TokenPosition, TokenPosition) {
+	return t.Start, t.End
+}
+
+// Basic ExprTypeRef construct for variable declarations and type declarations. E.g.: a: ExprTypeRef = Some Value...
+type ExprTypeRef struct {
+	Start, End TokenPosition
+	Name       string
+	Fields     []*ExprTypeRef
+	Returns    []*ExprTypeRef // specifically for function types
 }
 
 func (t *ExprTypeRef) String() string {

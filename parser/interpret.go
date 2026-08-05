@@ -121,6 +121,13 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 			}
 		}
 
+	case *StmtDeclType:
+		typ, err := checkTypeExpr(*stmt.TypeExpr, ts)
+		if err != nil {
+			return 0, err
+		}
+		ts.Set(stmt.Name, typ)
+
 	default:
 		panic("Unknown node: " + stmt.String())
 	}

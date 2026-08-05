@@ -154,9 +154,9 @@ func (p *Parser) statement() (Statement, bool) {
 		return p.stmt_if()
 	}
 
-	//if p.consume(KwType) {
-	//	return p.stmt_decl_type()
-	//}
+	if p.consume(KwType) {
+		return p.stmt_decl_type()
+	}
 
 	start := p.ptok.Pos
 	expr, ok := p.expression()
@@ -173,6 +173,77 @@ func (p *Parser) statement() (Statement, bool) {
 		Start: start,
 		End:   p.ptok.Pos,
 		Expr:  expr,
+	}, true
+}
+
+func (p *Parser) stmt_decl_type() (Statement, bool) {
+	start := p.ptok.Pos
+	if !p.consume(TokIdent) {
+		p.error("Expected type name.")
+		return nil, false
+	}
+	new_type_name := p.ptok.Literal
+	/*
+		if p.consume(KwStruct) {
+			if !p.consume(TokLCurly) {
+				p.error("Expected '{'.")
+				return nil, false
+			}
+			struct_start := p.ptok.Pos
+			fields := make([]StmtAssign, 0)
+			for p.consume(TokIdent) {
+				name := p.ptok
+				if !p.consume(TokColon) {
+					p.error("Expected ':'.")
+					return nil, false
+				}
+				typ, ok := p.type_expression()
+				if !ok {
+					return nil, false
+				}
+				if !p.consume(TokSemi) {
+					p.error("Expected ';'.")
+					return nil, false
+				}
+
+				fields = append(fields, StmtAssign{
+					Start: name.Pos, End: p.ptok.Pos,
+					Var: &ExprVariable{
+						IsConst: false,
+						Where:   name.Pos,
+						Name:    name.Literal,
+					},
+					TypeExpr: typ,
+					Value:    nil,
+				})
+			}
+			if !p.consume(TokRCurly) {
+				p.error("Expected '}'.")
+				return nil, false
+			}
+
+			return &StmtDeclType{
+				Start: start,
+				End:   p.ptok.Pos,
+				TypeExpr: &ExprTypeStruct{
+					Start:         struct_start,
+					End:           p.ptok.Pos,
+					IsDeclaration: true,
+					Fields:        fields,
+				},
+			}, true
+		}
+	*/
+	type_expr, ok := p.type_expression()
+	if !ok {
+		return nil, false
+	}
+
+	return &StmtDeclType{
+		Start:    start,
+		End:      p.ptok.Pos,
+		Name:     new_type_name,
+		TypeExpr: type_expr,
 	}, true
 }
 
@@ -604,6 +675,24 @@ func (p *Parser) primary() (Expression, bool) {
 }
 
 func (p *Parser) type_expression() (*ExprTypeRef, bool) {
+	if p.consume(TokLBrack) {
+		start := p.ptok.Pos
+		type_expr, ok := p.type_expression()
+		if !ok {
+			return nil, false
+		}
+		if !p.consume(TokRBrack) {
+			p.error("Expected ']'.")
+			return nil, false
+		}
+		return &ExprTypeRef{
+			Start:   start,
+			End:     p.ptok.Pos,
+			Name:    ArrayType.Name(),
+			Fields:  []*ExprTypeRef{type_expr},
+			Returns: nil,
+		}, true
+	}
 	if !p.consume(TokIdent) {
 		println(p.ptok.String(), p.ctok.String(), p.ntok.String())
 		p.error("Expected type name.")
@@ -628,15 +717,6 @@ func (p *Parser) type_expression() (*ExprTypeRef, bool) {
 			p.error("Expected ']'.")
 			return nil, false
 		}
-
-		return &ExprTypeRef{
-			Start:         name.Pos,
-			End:           p.ptok.Pos,
-			IsDeclaration: false,
-			Name:          name.Literal,
-			Fields:        fields,
-			Returns:       nil,
-		}, true
 	}
 
 	var returns []*ExprTypeRef = nil
@@ -656,23 +736,13 @@ func (p *Parser) type_expression() (*ExprTypeRef, bool) {
 			p.error("Expected ']'.")
 			return nil, false
 		}
-
-		return &ExprTypeRef{
-			Start:         name.Pos,
-			End:           p.ptok.Pos,
-			IsDeclaration: false,
-			Name:          name.Literal,
-			Fields:        fields,
-			Returns:       returns,
-		}, true
 	}
 
 	return &ExprTypeRef{
-		Start:         name.Pos,
-		End:           p.ptok.Pos,
-		IsDeclaration: false,
-		Name:          name.Literal,
-		Fields:        nil,
-		Returns:       nil,
+		Start:   name.Pos,
+		End:     p.ptok.Pos,
+		Name:    name.Literal,
+		Fields:  fields,
+		Returns: returns,
 	}, true
 }

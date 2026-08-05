@@ -12,9 +12,9 @@ import (
 type Checker struct {
 	Errors []error
 
-	file     *string
-	vs       *ValueScope
-	ts_types *TypeScope
+	file *string
+	vs   *ValueScope
+	ts   *TypeScope
 }
 
 func NewChecker(file string, vs *ValueScope, ts *TypeScope) *Checker {
@@ -26,7 +26,7 @@ func NewChecker(file string, vs *ValueScope, ts *TypeScope) *Checker {
 func (c *Checker) Init(file *string, vs *ValueScope, ts *TypeScope) {
 	c.file = file
 	c.vs = vs
-	c.ts_types = ts
+	c.ts = ts
 	c.Errors = make([]error, 0)
 }
 
@@ -71,15 +71,15 @@ func (c *Checker) checkStmt(code p.Node) {
 		}
 	case *p.StmtBlock:
 		parent_vs := c.vs
-		parent_ts_types := c.ts_types
+		parent_ts_types := c.ts
 
 		c.vs = NewValueScope(parent_vs)
-		c.ts_types = NewTypeScope(parent_ts_types)
+		c.ts = NewTypeScope(parent_ts_types)
 		for _, child := range n.Children {
 			c.Check(child)
 		}
 		c.vs = parent_vs
-		c.ts_types = parent_ts_types
+		c.ts = parent_ts_types
 	case *p.StmtAssign:
 		if c.vs.Exists(n.Var.Name) {
 			c.errorEnd(n.Var, "Variable '%s' already exists", n.Var.Name)
@@ -135,7 +135,12 @@ func (c *Checker) checkStmt(code p.Node) {
 		for _, value := range n.Values {
 			c.checkExpr(value)
 		}
-
+	case *p.StmtDeclType:
+		typ := c.checkTypeExpr(n.TypeExpr, *n.TypeExpr)
+		if typ == nil {
+			return
+		}
+		c.ts.Set(n.Name, typ)
 	default:
 		panic(fmt.Sprintf("UNHANDLED CASE ON checkStmt(%s)", code))
 	}
@@ -238,7 +243,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 }
 
 func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.ExprTypeRef) Type {
-	typ := c.ts_types.Get(type_expr.Name)
+	typ := c.ts.Get(type_expr.Name)
 	if typ == nil {
 		c.error(error_node, "Type '%s' not found.", type_expr.Name)
 		return nil
