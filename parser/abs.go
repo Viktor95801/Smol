@@ -23,6 +23,10 @@ func (s *Program) String() string {
 	return "Program" + s._String("")
 }
 
+type StmtLoopBlock struct {
+	StmtBlock
+}
+
 type StmtBlock struct {
 	Start, End TokenPosition
 	Children   []Statement
@@ -51,6 +55,30 @@ func (s *StmtBlock) String() string {
 
 func (s *StmtBlock) Pos() (TokenPosition, TokenPosition) {
 	return s.Start, s.End
+}
+
+type StmtBreak struct {
+	Where TokenPosition
+}
+
+func (s *StmtBreak) String() string {
+	return "[break]"
+}
+
+func (s *StmtBreak) Pos() (TokenPosition, TokenPosition) {
+	return s.Where, s.Where
+}
+
+type StmtContinue struct {
+	Where TokenPosition
+}
+
+func (s *StmtContinue) String() string {
+	return "[continue]"
+}
+
+func (s *StmtContinue) Pos() (TokenPosition, TokenPosition) {
+	return s.Where, s.Where
 }
 
 type StmtEmpty struct {

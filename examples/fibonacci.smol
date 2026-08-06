@@ -3,7 +3,7 @@ let nterms := 10;
 let n1 := 0;
 let n2 := 1;
 
-print "The fibonacci sequence, for", nterms, "terms is: ";
+print "The fibonacci sequence, for", nterms, "terms, is: ";
 print n1, n2;
 
 let i := 2;

@@ -17,6 +17,8 @@ type Checker struct {
 	file *string
 	vs   *ValueScope
 	ts   *TypeScope
+
+	loopDepth int
 }
 
 func NewChecker(file string, vs *ValueScope, ts *TypeScope) *Checker {
@@ -30,6 +32,7 @@ func (c *Checker) Init(file *string, vs *ValueScope, ts *TypeScope) {
 	c.vs = vs
 	c.ts = ts
 	c.Errors = make([]error, 0)
+	c.loopDepth = 0
 }
 
 func (c *Checker) errorMsg(n p.Node, format string, a ...any) error {
@@ -69,8 +72,17 @@ func (c *Checker) checkStmt(code p.Node) {
 	switch n := code.(type) {
 	case *p.Program:
 		for _, child := range n.Children {
+			if c.loopDepth < 1 && Is[*p.StmtBreak](child) {
+				c.errorEnd(child, "Unexpected break statement outside of loop")
+				continue
+			}
+			if c.loopDepth < 1 && Is[*p.StmtContinue](child) {
+				c.errorEnd(child, "Unexpected continue statement outside of loop")
+				continue
+			}
 			c.Check(child)
 		}
+		return
 	case *p.StmtBlock:
 		parent_vs := c.vs
 		parent_ts_types := c.ts
@@ -78,10 +90,38 @@ func (c *Checker) checkStmt(code p.Node) {
 		c.vs = NewValueScope(parent_vs)
 		c.ts = NewTypeScope(parent_ts_types)
 		for _, child := range n.Children {
+			if c.loopDepth < 1 && Is[*p.StmtBreak](child) {
+				c.errorEnd(child, "Unexpected break statement outside of loop")
+				continue
+			}
+			if c.loopDepth < 1 && Is[*p.StmtContinue](child) {
+				c.errorEnd(child, "Unexpected continue statement outside of loop")
+				continue
+			}
 			c.Check(child)
 		}
 		c.vs = parent_vs
 		c.ts = parent_ts_types
+	case *p.StmtLoopBlock:
+		c.loopDepth++
+		parent_vs := c.vs
+		parent_ts_types := c.ts
+
+		c.vs = NewValueScope(parent_vs)
+		c.ts = NewTypeScope(parent_ts_types)
+		for _, child := range n.Children {
+			if Is[*p.StmtBreak](child) {
+				break
+			}
+			if Is[*p.StmtContinue](child) {
+				continue
+			}
+			c.Check(child)
+		}
+		c.vs = parent_vs
+		c.ts = parent_ts_types
+		c.loopDepth--
+
 	case *p.StmtAssign:
 		if c.vs.Exists(n.Var.Name) {
 			c.errorEnd(n.Var, "Variable '%s' already exists", n.Var.Name)
@@ -153,6 +193,12 @@ func (c *Checker) checkStmt(code p.Node) {
 			return
 		}
 		c.ts.Set(n.Name, typ)
+
+	//TODO: check for break/continue in body vs loop (need to traverse the tree upwards i think)
+	case *p.StmtBreak:
+	case *p.StmtContinue:
+	case *p.StmtEmpty:
+		return
 	default:
 		panic(fmt.Sprintf("UNHANDLED CASE ON checkStmt(%s)", code))
 	}

@@ -5,8 +5,14 @@ import (
 	. "smol/parser/environment"
 	. "smol/util"
 
+	"errors"
 	"fmt"
 	"math"
+)
+
+var (
+	ErrBreak    = errors.New("break signal")
+	ErrContinue = errors.New("continue signal")
 )
 
 func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) {
@@ -18,11 +24,14 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 	}
 
 	switch stmt := code.(type) {
-	case *StmtEmpty:
-		break
-
 	case *Program:
 		for _, s := range stmt.Children {
+			if Is[*StmtBreak](s) {
+				return 0, fmt.Errorf("Unexpected break statement outside of loop.")
+			}
+			if Is[*StmtContinue](s) {
+				return 0, fmt.Errorf("Unexpected continue statement outside of loop.")
+			}
 			exit_code, err := Interpret(s, env, ts)
 			if err != nil {
 				return 0, err
@@ -32,12 +41,42 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 			}
 		}
 		return 0, nil
-
 	case *StmtBlock:
 		scope := NewValueScope(env)
 		tscope := NewTypeScope(ts)
 		for _, s := range stmt.Children {
+			if Is[*StmtBreak](s) {
+				return 0, fmt.Errorf("Unexpected break statement outside of loop.")
+			}
+			if Is[*StmtContinue](s) {
+				return 0, fmt.Errorf("Unexpected continue statement outside of loop.")
+			}
 			exit_code, err := Interpret(s, scope, tscope)
+			if err != nil {
+				return 0, err
+			}
+			if Is[*StmtReturn](s) {
+				return exit_code, nil
+			}
+		}
+		return 0, nil
+	case *StmtLoopBlock:
+		scope := NewValueScope(env)
+		tscope := NewTypeScope(ts)
+		for _, s := range stmt.Children {
+			if Is[*StmtBreak](s) {
+				break
+			}
+			if Is[*StmtContinue](s) {
+				continue
+			}
+			exit_code, err := Interpret(s, scope, tscope)
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if errors.Is(err, ErrContinue) {
+				continue
+			}
 			if err != nil {
 				return 0, err
 			}
@@ -144,6 +183,7 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 			}
 			value_bool = *As[*ValueBool](cond)
 		}
+
 	case *StmtDeclType:
 		typ, err := checkTypeExpr(*stmt.TypeExpr, ts)
 		if err != nil {
@@ -151,6 +191,12 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 		}
 		ts.Set(stmt.Name, typ)
 
+	case *StmtEmpty:
+		break
+	case *StmtBreak:
+		return 0, ErrBreak
+	case *StmtContinue:
+		return 0, ErrContinue
 	default:
 		panic("Unknown node: " + stmt.String())
 	}

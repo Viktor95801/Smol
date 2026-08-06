@@ -3,9 +3,10 @@ package parser
 import (
 	. "smol/lexer/token"
 	. "smol/parser/environment"
-	"strconv"
+	. "smol/util"
 
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -132,6 +133,14 @@ func (p *Parser) statement() (Statement, bool) {
 
 	if p.consume(TokSemi) {
 		return &StmtEmpty{Where: p.ptok.Pos}, true
+	}
+
+	if p.consume(KwBreak) {
+		return &StmtBreak{Where: p.ptok.Pos}, true
+	}
+
+	if p.consume(KwContinue) {
+		return &StmtContinue{Where: p.ptok.Pos}, true
 	}
 
 	if p.consume(TokLCurly) {
@@ -469,7 +478,7 @@ func (p *Parser) stmt_while() (Statement, bool) {
 		Start:     start,
 		End:       p.ptok.Pos,
 		Condition: cond,
-		Body:      body,
+		Body:      &StmtLoopBlock{StmtBlock: *As[*StmtBlock](body)},
 	}, true
 }
 

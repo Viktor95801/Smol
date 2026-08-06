@@ -152,18 +152,20 @@ func (l *Lexer) next() {
 }
 
 var keywordMap = map[string]TokenKind{
-	"true":    KwTrue,
-	"false":   KwFalse,
-	"return":  KwReturn,
-	"print":   KwPrint,
-	"println": KwPrintln,
-	"input":   KwInput,
-	"let":     KwLet,
-	"if":      KwIf,
-	"while":   KwWhile,
-	"else":    KwElse,
-	"type":    KwType,
-	"struct":  KwStruct,
+	"true":     KwTrue,
+	"false":    KwFalse,
+	"return":   KwReturn,
+	"print":    KwPrint,
+	"println":  KwPrintln,
+	"input":    KwInput,
+	"let":      KwLet,
+	"if":       KwIf,
+	"else":     KwElse,
+	"while":    KwWhile,
+	"break":    KwBreak,
+	"continue": KwContinue,
+	"type":     KwType,
+	"struct":   KwStruct,
 }
 
 func (l *Lexer) lexIdent() bool {

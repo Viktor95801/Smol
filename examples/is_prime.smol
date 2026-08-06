@@ -1,0 +1,18 @@
+let n := 29;
+let is_prime := true;
+let d := 2;
+
+while d * d <= n {
+    if n % d == 0 {
+        is_prime = false;
+        break;
+    }
+    d = d + 1;
+}
+
+print n;
+if is_prime {
+    println "is prime!";
+} else {
+    println "is not prime.";
+}
