@@ -115,25 +115,25 @@ func (scp *ValueScope) Get(variable string) Value {
 
 func defaultValue(typ Type) Value {
 	switch t := typ.(type) {
-	case TypeNumber:
-		return ValueNumber(0)
-	case TypeBool:
-		return ValueBool(false)
-	case TypeString:
-		return ValueString("")
+	case *TypeNumber:
+		return new(ValueNumber(0))
+	case *TypeBool:
+		return new(ValueBool(false))
+	case *TypeString:
+		return new(ValueString(""))
 	case *TypeArray:
-		return &ValueArray{Values: []Value{}}
+		return new(ValueArray{Values: []Value{}})
 	case *TypeStruct:
 		fields := make(map[string]Value)
 		for name, fieldTyp := range t.Fields {
 			fields[name] = defaultValue(fieldTyp)
 		}
-		return &ValueStruct{Fields: fields}
+		return new(ValueStruct{Fields: fields})
 	case *TypeDefined:
-		return &ValueDefined{
+		return new(ValueDefined{
 			DefinedType: t,
 			Inner:       defaultValue(t.Underlying),
-		}
+		})
 	default:
 		panic("Unknown type")
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 func init_environment(env *ValueScope) {
-	env.NewConstant("Pi", ValueNumber(3.14))
+	env.NewConstant("Pi", new(ValueNumber(3.14)))
 }
 
 func init_type_scope(ts *TypeScope) {

@@ -117,7 +117,7 @@ func (c *Checker) checkStmt(code p.Node) {
 		if cond == nil {
 			return
 		}
-		if !Is[TypeBool](cond) {
+		if !Is[*TypeBool](cond) {
 			c.error(n.Condition, "Expected bool, got '%s'.", cond.Name())
 		}
 		c.checkStmt(n.If)
@@ -130,7 +130,7 @@ func (c *Checker) checkStmt(code p.Node) {
 			return
 		}
 
-		if !Is[TypeNumber](expr) {
+		if !Is[*TypeNumber](expr) {
 			c.error(n.Expr, "Expected number, got '%s'.", expr.Name())
 		}
 	case *p.StmtPrint:
@@ -201,7 +201,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			return nil
 		}
 
-		if !IsOneOf(left, TypeNumber{}, TypeString{}, TypeBool{}) || !IsEqual(right, left) {
+		if !IsOneOf(left, NumberType, StringType, BoolType) || !IsEqual(right, left) {
 			c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
 		}
 
@@ -212,7 +212,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			return nil
 		}
 
-		if !IsOneOf(value, TypeNumber{}, TypeBool{}) {
+		if !IsOneOf(value, NumberType, BoolType) {
 			c.error(n.Value, "Expected number or bool, got '%s'.", value.Name())
 		}
 
@@ -236,7 +236,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			index_type = As[*TypeDefined](index_type).Underlying
 		}
 
-		if !Is[TypeNumber](index_type) {
+		if !Is[*TypeNumber](index_type) {
 			c.errorEnd(n.Index, "Index must be number. Got '%s'.", index_type.Name())
 		}
 		if !Is[*TypeArray](array_type) {

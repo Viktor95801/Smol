@@ -630,9 +630,9 @@ func (p *Parser) primary() (Expression, bool) {
 			p.error("Invalid number.")
 			return nil, false
 		}
-		result.Value = ValueNumber(value)
+		result.Value = new(ValueNumber(value))
 	case TokString:
-		result.Value = ValueString(p.ptok.Literal)
+		result.Value = new(ValueString(p.ptok.Literal))
 	case TokIdent:
 		return &ExprVariable{
 			Where:   p.ptok.Pos,
@@ -640,7 +640,7 @@ func (p *Parser) primary() (Expression, bool) {
 			Name:    p.ptok.Literal,
 		}, true
 	case KwTrue, KwFalse:
-		result.Value = ValueBool(p.ptok.Kind == KwTrue)
+		result.Value = new(ValueBool(p.ptok.Kind == KwTrue))
 
 	case TokLBrack:
 		start := p.ptok.Pos

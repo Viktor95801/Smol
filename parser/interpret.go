@@ -27,7 +27,7 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 			if err != nil {
 				return 0, err
 			}
-			if _, is_return := s.(*StmtReturn); is_return {
+			if Is[*StmtReturn](s) {
 				return exit_code, nil
 			}
 		}
@@ -41,7 +41,7 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 			if err != nil {
 				return 0, err
 			}
-			if _, is_return := s.(*StmtReturn); is_return {
+			if Is[*StmtReturn](s) {
 				return exit_code, nil
 			}
 		}
@@ -79,7 +79,7 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 		if !value.Type().IsAssignableTo(NumberType) {
 			return 0, fmt.Errorf("Return value must be a number")
 		}
-		value_float := value.(ValueNumber)
+		value_float := *As[*ValueNumber](value)
 		return float64(value_float), nil
 
 	case *StmtAssign:
@@ -104,7 +104,7 @@ func Interpret(code Statement, env *ValueScope, ts *TypeScope) (float64, error) 
 		if !value.Type().IsAssignableTo(BoolType) {
 			return 0, fmt.Errorf("Condition must be a boolean")
 		}
-		value_bool := value.(ValueBool)
+		value_bool := *As[*ValueBool](value)
 
 		if value_bool {
 			scope := NewValueScope(env)
@@ -172,11 +172,11 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !Is[TypeNumber](index.Type()) {
+		if !Is[*TypeNumber](index.Type()) {
 			return nil, fmt.Errorf("Expected a number index.")
 		}
 		values := As[*ValueArray](array).Values
-		i := As[ValueNumber](index)
+		i := *As[*ValueNumber](index)
 		if float64(i) >= float64(len(values)) {
 			return nil, fmt.Errorf("Index out of bounds.")
 		}
@@ -218,12 +218,14 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 		if !value.Type().IsAssignableTo(NumberType) {
 			return nil, fmt.Errorf("Unary operation is not supported on type '%s'", value.Type().Name())
 		}
-		value_num := value.(ValueNumber)
+		value_num := *As[*ValueNumber](value)
 		switch e.Op.Kind {
 		case OpAdd:
-			return +value_num, nil
+			result := +value_num
+			return &result, nil
 		case OpSub:
-			return -value_num, nil
+			result := -value_num
+			return &result, nil
 
 		default:
 			return nil, fmt.Errorf("Invalid unary operator: %s", e.Op)
@@ -240,10 +242,11 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 			return nil, err
 		}
 
-		if Is[TypeString](right.Type()) && Is[TypeString](left.Type()) {
-			return As[ValueString](left) + As[ValueString](right), nil
+		if Is[*TypeString](right.Type()) && Is[*TypeString](left.Type()) {
+			result := (*As[*ValueString](left)) + (*As[*ValueString](right))
+			return &result, nil
 		}
-		if Is[TypeString](right.Type()) || Is[TypeString](left.Type()) {
+		if Is[*TypeString](right.Type()) || Is[*TypeString](left.Type()) {
 			return nil, fmt.Errorf("Concatenation of '%s' and '%s' is not supported", left.Type().Name(), right.Type().Name())
 		}
 
@@ -254,22 +257,28 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 			return nil, fmt.Errorf("Binary operation is not supported on type '%s'", left.Type().Name())
 		}
 
-		left_num := As[ValueNumber](left)
-		right_num := As[ValueNumber](right)
+		left_num := As[*ValueNumber](left)
+		right_num := As[*ValueNumber](right)
 
 		switch e.Op.Kind {
 		case OpAdd:
-			return left_num + right_num, nil
+			result := *left_num + *right_num
+			return &result, nil
 		case OpSub:
-			return left_num - right_num, nil
+			result := *left_num - *right_num
+			return &result, nil
 		case OpMul:
-			return left_num * right_num, nil
+			result := *left_num * *right_num
+			return &result, nil
 		case OpDiv:
-			return left_num / right_num, nil
+			result := *left_num / *right_num
+			return &result, nil
 		case OpMod:
-			return ValueNumber(math.Mod(float64(left_num), float64(right_num))), nil
+			result := ValueNumber(math.Mod(float64(*left_num), float64(*right_num)))
+			return &result, nil
 		case OpPow:
-			return ValueNumber(math.Pow(float64(left_num), float64(right_num))), nil
+			result := ValueNumber(math.Pow(float64(*left_num), float64(*right_num)))
+			return &result, nil
 
 		default:
 			return nil, fmt.Errorf("Invalid operator: %s", e.Op)

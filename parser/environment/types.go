@@ -4,30 +4,13 @@ import (
 	. "smol/util"
 
 	"fmt"
-	"slices"
 	"strings"
 )
 
-type TypeKind int
-
-func (k TypeKind) OneOf(kinds ...TypeKind) bool {
-	return slices.Contains(kinds, k)
-}
-
-const (
-	TKNumber TypeKind = iota
-	TKBool
-	TKString
-	TKArray
-	TKStruct
-	TKFunction // TODO: Implement
-	TKDefined
-)
-
 var (
-	NumberType = TypeNumber{}
-	BoolType   = TypeBool{}
-	StringType = TypeString{}
+	NumberType = &TypeNumber{}
+	BoolType   = &TypeBool{}
+	StringType = &TypeString{}
 	ArrayType  = &TypeArray{}
 )
 
@@ -36,71 +19,42 @@ type Type interface {
 	String() string // for printing
 	Copy() Type     // for deep copying
 	IsAssignableTo(other Type) bool
-
-	//Kind() TypeKind
-	//HasFields() bool
-	//SetFields(fields []Type) error
-	//AmountFields() int
-	//HasReturns() bool
-	//SetReturns(returns []Type) error
-	//AmountReturns() int
 }
 
 type TypeNumber struct{}
 
-func (n TypeNumber) Kind() TypeKind                  { return TKNumber }
-func (n TypeNumber) Name() string                    { return "Num" }
-func (n TypeNumber) String() string                  { return "Num" }
-func (n TypeNumber) Copy() Type                      { return NumberType }
-func (n TypeNumber) HasFields() bool                 { return false }
-func (n TypeNumber) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
-func (n TypeNumber) AmountFields() int               { return 0 }
-func (n TypeNumber) HasReturns() bool                { return false }
-func (n TypeNumber) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
-func (n TypeNumber) AmountReturns() int              { return 0 }
-func (n TypeNumber) IsAssignableTo(other Type) bool {
+func (n *TypeNumber) Name() string   { return "Num" }
+func (n *TypeNumber) String() string { return "Num" }
+func (n *TypeNumber) Copy() Type     { return NumberType }
+func (n *TypeNumber) IsAssignableTo(other Type) bool {
 	if Is[*TypeDefined](other) {
 		return n.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	return Is[TypeNumber](other)
+	return Is[*TypeNumber](other)
 }
 
 type TypeBool struct{}
 
-func (n TypeBool) Kind() TypeKind                  { return TKBool }
-func (n TypeBool) Name() string                    { return "Bool" }
-func (n TypeBool) String() string                  { return "Bool" }
-func (n TypeBool) Copy() Type                      { return BoolType }
-func (n TypeBool) HasFields() bool                 { return false }
-func (n TypeBool) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
-func (n TypeBool) AmountFields() int               { return 0 }
-func (n TypeBool) HasReturns() bool                { return false }
-func (n TypeBool) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
-func (n TypeBool) AmountReturns() int              { return 0 }
-func (n TypeBool) IsAssignableTo(other Type) bool {
+func (n *TypeBool) Name() string   { return "Bool" }
+func (n *TypeBool) String() string { return "Bool" }
+func (n *TypeBool) Copy() Type     { return BoolType }
+func (n *TypeBool) IsAssignableTo(other Type) bool {
 	if Is[*TypeDefined](other) {
 		return n.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	return Is[TypeBool](other)
+	return Is[*TypeBool](other)
 }
 
 type TypeString struct{}
 
-func (n TypeString) Kind() TypeKind                  { return TKString }
-func (n TypeString) String() string                  { return "Str" }
-func (n TypeString) Copy() Type                      { return StringType }
-func (n TypeString) Name() string                    { return "Str" }
-func (n TypeString) HasFields() bool                 { return false }
-func (n TypeString) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
-func (n TypeString) AmountFields() int               { return 0 }
-func (n TypeString) HasReturns() bool                { return false }
-func (n TypeString) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
-func (n TypeString) AmountReturns() int              { return 0 }
-func (n TypeString) IsAssignableTo(other Type) bool {
+func (n *TypeString) String() string { return "Str" }
+func (n *TypeString) Copy() Type     { return StringType }
+func (n *TypeString) Name() string   { return "Str" }
+func (n *TypeString) IsAssignableTo(other Type) bool {
 	if Is[*TypeDefined](other) {
 		return n.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	return Is[TypeString](other)
+	return Is[*TypeString](other)
 }
 
 type TypeStruct struct {
@@ -108,8 +62,7 @@ type TypeStruct struct {
 	Fields   map[string]Type
 }
 
-func (s *TypeStruct) Kind() TypeKind { return TKStruct }
-func (s *TypeStruct) Name() string   { return s.TypeName }
+func (s *TypeStruct) Name() string { return s.TypeName }
 func (s *TypeStruct) String() string {
 	sb := strings.Builder{}
 	sb.WriteString("Struct ")
@@ -132,17 +85,6 @@ func (s *TypeStruct) Copy() Type {
 	}
 	return &TypeStruct{TypeName: s.TypeName, Fields: fields}
 }
-func (s *TypeStruct) HasFields() bool { return true }
-func (s *TypeStruct) SetFields(fields []Type) error {
-	for _, field := range fields {
-		s.Fields[field.Name()] = field
-	}
-	return nil
-}
-func (s *TypeStruct) AmountFields() int               { return len(s.Fields) }
-func (s *TypeStruct) HasReturns() bool                { return false }
-func (s *TypeStruct) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
-func (s *TypeStruct) AmountReturns() int              { return 0 }
 func (s *TypeStruct) IsAssignableTo(other Type) bool {
 	if Is[*TypeDefined](other) {
 		return s.IsAssignableTo(As[*TypeDefined](other).Underlying)
@@ -167,8 +109,7 @@ type TypeArray struct {
 	ElemType Type
 }
 
-func (t *TypeArray) Kind() TypeKind { return TKArray }
-func (t *TypeArray) Name() string   { return "Array" }
+func (t *TypeArray) Name() string { return "Array" }
 func (t *TypeArray) String() string {
 	return "Array[" + t.ElemType.String() + "]"
 }
@@ -178,19 +119,6 @@ func (t *TypeArray) Copy() Type {
 	}
 	return &TypeArray{ElemType: t.ElemType.Copy()}
 }
-func (t *TypeArray) HasFields() bool { return true }
-func (t *TypeArray) SetFields(fields []Type) error {
-	if len(fields) != 1 {
-		return fmt.Errorf("Array type must have exactly one field (the element type).")
-	}
-	t.ElemType = fields[0]
-	return nil
-}
-
-func (t *TypeArray) AmountFields() int               { return 1 }
-func (t *TypeArray) HasReturns() bool                { return false }
-func (t *TypeArray) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
-func (t *TypeArray) AmountReturns() int              { return 0 }
 func (t *TypeArray) IsAssignableTo(other Type) bool {
 	if Is[*TypeDefined](other) {
 		return t.IsAssignableTo(As[*TypeDefined](other).Underlying)
@@ -209,7 +137,6 @@ type TypeDefined struct {
 	Underlying Type
 }
 
-func (d *TypeDefined) Kind() TypeKind { return TKDefined }
 func (d *TypeDefined) Name() string   { return d.TypeName }
 func (d *TypeDefined) String() string { return d.TypeName + ":" + d.Underlying.String() }
 func (d *TypeDefined) Copy() Type {
@@ -218,12 +145,6 @@ func (d *TypeDefined) Copy() Type {
 	}
 	return &TypeDefined{TypeName: d.TypeName, Underlying: d.Underlying.Copy()}
 }
-func (d *TypeDefined) HasFields() bool                 { return false }
-func (d *TypeDefined) SetFields(fields []Type) error   { return fmt.Errorf("No fields here") }
-func (d *TypeDefined) AmountFields() int               { return 0 }
-func (d *TypeDefined) HasReturns() bool                { return false }
-func (d *TypeDefined) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
-func (d *TypeDefined) AmountReturns() int              { return 0 }
 func (d *TypeDefined) IsAssignableTo(target Type) bool {
 	if d.Name() == target.Name() {
 		return true
@@ -239,18 +160,18 @@ type Value interface {
 
 type ValueNumber float64
 
-func (v ValueNumber) Type() Type     { return NumberType }
-func (v ValueNumber) String() string { return fmt.Sprintf("%g", v) }
+func (v *ValueNumber) Type() Type     { return NumberType }
+func (v *ValueNumber) String() string { return fmt.Sprintf("%g", *v) }
 
 type ValueBool bool
 
-func (v ValueBool) Type() Type     { return BoolType }
-func (v ValueBool) String() string { return fmt.Sprintf("%t", v) }
+func (v *ValueBool) Type() Type     { return BoolType }
+func (v *ValueBool) String() string { return fmt.Sprintf("%t", *v) }
 
 type ValueString string
 
-func (v ValueString) Type() Type     { return StringType }
-func (v ValueString) String() string { return string(v) }
+func (v *ValueString) Type() Type     { return StringType }
+func (v *ValueString) String() string { return string(*v) }
 
 type ValueStruct struct {
 	StructType *TypeStruct
