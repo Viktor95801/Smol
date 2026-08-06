@@ -3,6 +3,7 @@ package parser
 import (
 	. "smol/lexer/token"
 	. "smol/parser/environment"
+	. "smol/util"
 
 	"fmt"
 	"math"
@@ -164,18 +165,18 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !array.Type().Kind().OneOf(TKArray) {
+		if !Is[*TypeArray](array.Type()) {
 			return nil, fmt.Errorf("Expected an array.")
 		}
 		index, err := Evaluate(e.Index, env)
 		if err != nil {
 			return nil, err
 		}
-		if !index.Type().Kind().OneOf(TKNumber) {
+		if !Is[TypeNumber](index.Type()) {
 			return nil, fmt.Errorf("Expected a number index.")
 		}
-		values := array.(*ValueArray).Values
-		i := index.(ValueNumber)
+		values := As[*ValueArray](array).Values
+		i := As[ValueNumber](index)
 		if float64(i) >= float64(len(values)) {
 			return nil, fmt.Errorf("Index out of bounds.")
 		}
@@ -239,10 +240,10 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 			return nil, err
 		}
 
-		if right.Type().Kind() == TKString && left.Type().Kind() == TKString {
-			return left.(ValueString) + right.(ValueString), nil
+		if Is[TypeString](right.Type()) && Is[TypeString](left.Type()) {
+			return As[ValueString](left) + As[ValueString](right), nil
 		}
-		if right.Type().Kind() == TKString || left.Type().Kind() == TKString {
+		if Is[TypeString](right.Type()) || Is[TypeString](left.Type()) {
 			return nil, fmt.Errorf("Concatenation of '%s' and '%s' is not supported", left.Type().Name(), right.Type().Name())
 		}
 
@@ -253,8 +254,8 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 			return nil, fmt.Errorf("Binary operation is not supported on type '%s'", left.Type().Name())
 		}
 
-		left_num := left.(ValueNumber)
-		right_num := right.(ValueNumber)
+		left_num := As[ValueNumber](left)
+		right_num := As[ValueNumber](right)
 
 		switch e.Op.Kind {
 		case OpAdd:
@@ -280,47 +281,38 @@ func Evaluate(expr Expression, env *ValueScope) (Value, error) {
 
 // same function as in checkers
 func checkTypeExpr(type_expr ExprTypeRef, ts *TypeScope) (Type, error) {
-	typ := ts.Get(type_expr.Name)
+	var err error
+	typ := ts.Get(type_expr.Name).Copy()
 	if typ == nil {
 		return nil, fmt.Errorf("Type '%s' not found.", type_expr.Name)
 	}
 
-	if !typ.HasFields() && len(type_expr.Fields) > 0 {
-		return nil, fmt.Errorf("Type '%s' does not have fields.", typ.Name())
-	}
-
-	if !typ.HasReturns() && len(type_expr.Returns) > 0 {
-		return nil, fmt.Errorf("Type '%s' does not have returns.", typ.Name())
-	}
-
-	if len(type_expr.Fields) > 0 {
-		fields := make([]Type, 0, len(type_expr.Fields))
-		for _, field := range type_expr.Fields {
-			field_typ, err := checkTypeExpr(*field, ts)
-			if err != nil {
-				return nil, err
-			}
-			fields = append(fields, field_typ)
+	if Is[*TypeArray](typ) {
+		t := As[*TypeArray](typ)
+		if len(type_expr.Fields) > 0 && t.ElemType != nil {
+			return nil, fmt.Errorf("Array type '%s' doesn't need fields since it's already a declared type.", t.Name())
+		} else if t.ElemType != nil {
+			return t, nil
 		}
-		err := typ.SetFields(fields)
+
+		if len(type_expr.Fields) > 1 {
+			return nil, fmt.Errorf("Array type can only have one single field (its elem type), multiple were provided.")
+		}
+
+		t.ElemType, err = checkTypeExpr(*type_expr.Fields[0], ts)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to set fields for type '%s': %v.", typ.Name(), err)
+			return nil, err
 		}
+		return t, nil
 	}
 
-	if len(type_expr.Returns) > 0 {
-		returns := make([]Type, 0, len(type_expr.Returns))
-		for _, return_expr := range type_expr.Returns {
-			return_typ, err := checkTypeExpr(*return_expr, ts)
-			if err != nil {
-				return nil, err
-			}
-			returns = append(returns, return_typ)
+	if Is[*TypeStruct](typ) {
+		t := As[*TypeStruct](typ)
+		if len(type_expr.Fields) > 0 {
+			return nil, fmt.Errorf("Struct types don't need fields when referenced.")
 		}
-		err := typ.SetReturns(returns)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to set returns for type '%s': %v.", typ.Name(), err)
-		}
+
+		return t, nil //TODO: implement Struct{fields...} stuff instead of only referencing
 	}
 
 	return typ, nil

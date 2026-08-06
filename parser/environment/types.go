@@ -1,6 +1,8 @@
 package environment
 
 import (
+	. "smol/util"
+
 	"fmt"
 	"slices"
 	"strings"
@@ -33,14 +35,15 @@ type Type interface {
 	Name() string
 	String() string // for printing
 	Copy() Type     // for deep copying
-	Kind() TypeKind
-	HasFields() bool
-	SetFields(fields []Type) error
-	AmountFields() int
-	HasReturns() bool
-	SetReturns(returns []Type) error
-	AmountReturns() int
 	IsAssignableTo(other Type) bool
+
+	//Kind() TypeKind
+	//HasFields() bool
+	//SetFields(fields []Type) error
+	//AmountFields() int
+	//HasReturns() bool
+	//SetReturns(returns []Type) error
+	//AmountReturns() int
 }
 
 type TypeNumber struct{}
@@ -56,10 +59,10 @@ func (n TypeNumber) HasReturns() bool                { return false }
 func (n TypeNumber) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (n TypeNumber) AmountReturns() int              { return 0 }
 func (n TypeNumber) IsAssignableTo(other Type) bool {
-	if other.Kind() == TKDefined {
-		return n.IsAssignableTo(other.(*TypeDefined).Underlying)
+	if Is[*TypeDefined](other) {
+		return n.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	return other.Kind() == TKNumber
+	return Is[TypeNumber](other)
 }
 
 type TypeBool struct{}
@@ -75,10 +78,10 @@ func (n TypeBool) HasReturns() bool                { return false }
 func (n TypeBool) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (n TypeBool) AmountReturns() int              { return 0 }
 func (n TypeBool) IsAssignableTo(other Type) bool {
-	if other.Kind() == TKDefined {
-		return n.IsAssignableTo(other.(*TypeDefined).Underlying)
+	if Is[*TypeDefined](other) {
+		return n.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	return other.Kind() == TKBool
+	return Is[TypeBool](other)
 }
 
 type TypeString struct{}
@@ -94,10 +97,10 @@ func (n TypeString) HasReturns() bool                { return false }
 func (n TypeString) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (n TypeString) AmountReturns() int              { return 0 }
 func (n TypeString) IsAssignableTo(other Type) bool {
-	if other.Kind() == TKDefined {
-		return n.IsAssignableTo(other.(*TypeDefined).Underlying)
+	if Is[*TypeDefined](other) {
+		return n.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	return other.Kind() == TKString
+	return Is[TypeString](other)
 }
 
 type TypeStruct struct {
@@ -141,10 +144,10 @@ func (s *TypeStruct) HasReturns() bool                { return false }
 func (s *TypeStruct) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (s *TypeStruct) AmountReturns() int              { return 0 }
 func (s *TypeStruct) IsAssignableTo(other Type) bool {
-	if other.Kind() == TKDefined {
-		return s.IsAssignableTo(other.(*TypeDefined).Underlying)
+	if Is[*TypeDefined](other) {
+		return s.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	if other.Kind() != TKStruct {
+	if !Is[*TypeStruct](other) {
 		return false
 	}
 	if s.Name() == other.Name() {
@@ -189,13 +192,13 @@ func (t *TypeArray) HasReturns() bool                { return false }
 func (t *TypeArray) SetReturns(returns []Type) error { return fmt.Errorf("No returns here") }
 func (t *TypeArray) AmountReturns() int              { return 0 }
 func (t *TypeArray) IsAssignableTo(other Type) bool {
-	if other.Kind() == TKDefined {
-		return t.IsAssignableTo(other.(*TypeDefined).Underlying)
+	if Is[*TypeDefined](other) {
+		return t.IsAssignableTo(As[*TypeDefined](other).Underlying)
 	}
-	if other.Kind() != TKArray {
+	if !Is[*TypeArray](other) {
 		return false
 	}
-	if !t.ElemType.IsAssignableTo(other.(*TypeArray).ElemType) {
+	if !t.ElemType.IsAssignableTo(As[*TypeArray](other).ElemType) {
 		return false
 	}
 	return true

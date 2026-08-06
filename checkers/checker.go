@@ -3,6 +3,7 @@ package checkers
 import (
 	p "smol/parser"
 	. "smol/parser/environment"
+	. "smol/util"
 
 	//	. "smol/lexer/token"
 
@@ -116,7 +117,7 @@ func (c *Checker) checkStmt(code p.Node) {
 		if cond == nil {
 			return
 		}
-		if !cond.Kind().OneOf(TKBool) {
+		if !Is[TypeBool](cond) {
 			c.error(n.Condition, "Expected bool, got '%s'.", cond.Name())
 		}
 		c.checkStmt(n.If)
@@ -129,7 +130,7 @@ func (c *Checker) checkStmt(code p.Node) {
 			return
 		}
 
-		if !expr.Kind().OneOf(TKNumber) {
+		if !Is[TypeNumber](expr) {
 			c.error(n.Expr, "Expected number, got '%s'.", expr.Name())
 		}
 	case *p.StmtPrint:
@@ -200,7 +201,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			return nil
 		}
 
-		if !left.Kind().OneOf(TKNumber, TKString, TKBool) || !left.Kind().OneOf(right.Kind()) {
+		if !IsOneOf(left, TypeNumber{}, TypeString{}, TypeBool{}) || !IsEqual(right, left) {
 			c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
 		}
 
@@ -211,7 +212,7 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			return nil
 		}
 
-		if !value.Kind().OneOf(TKNumber, TKBool) {
+		if !IsOneOf(value, TypeNumber{}, TypeBool{}) {
 			c.error(n.Value, "Expected number or bool, got '%s'.", value.Name())
 		}
 
@@ -224,19 +225,25 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 		if array_type == nil {
 			return nil
 		}
+		for Is[*TypeDefined](array_type) {
+			array_type = As[*TypeDefined](array_type).Underlying
+		}
 		index_type := c.checkExpr(n.Index)
 		if index_type == nil {
 			return nil
 		}
+		for Is[*TypeDefined](index_type) {
+			index_type = As[*TypeDefined](index_type).Underlying
+		}
 
-		if !index_type.Kind().OneOf(TKNumber) {
+		if !Is[TypeNumber](index_type) {
 			c.errorEnd(n.Index, "Index must be number. Got '%s'.", index_type.Name())
 		}
-		if !array_type.Kind().OneOf(TKArray) {
+		if !Is[*TypeArray](array_type) {
 			c.error(n.Array, "Expected indexed type, got '%s'.", array_type.Name())
 		}
 
-		return array_type.(*TypeArray).ElemType
+		return As[*TypeArray](array_type).ElemType
 
 	default:
 		panic(fmt.Sprintf("UNHANDLED CASE ON checkExpr(%s)", code))
@@ -250,51 +257,37 @@ func (c *Checker) checkTypeExpr(error_node p.Node, type_expr p.ExprTypeRef) Type
 		return nil
 	}
 
-	if !typ.HasFields() && len(type_expr.Fields) > 0 {
-		c.error(error_node, "Type '%s' does not have fields.", typ.Name())
-		return nil
-	}
-
-	if typ.HasFields() && typ.AmountFields() == 0 && len(type_expr.Fields) > 0 {
-		c.error(error_node, "Type '%s' has fields but none were provided.", typ.Name())
-		return nil
-	}
-
-	if !typ.HasReturns() && len(type_expr.Returns) > 0 {
-		c.error(error_node, "Type '%s' does not have returns.", typ.Name())
-		return nil
-	}
-
-	if len(type_expr.Fields) > 0 {
-		fields := make([]Type, 0, len(type_expr.Fields))
-		for _, field := range type_expr.Fields {
-			field_typ := c.checkTypeExpr(error_node, *field)
-			if field_typ == nil {
-				return nil
-			}
-			fields = append(fields, field_typ)
+	if Is[*TypeArray](typ) {
+		t := As[*TypeArray](typ)
+		if len(type_expr.Fields) > 0 && t.ElemType != nil {
+			c.error(error_node, "Array type doesn't need fields (e.g. %s[%s]) since it's already a declared type.",
+				t.Name(), type_expr.Fields[0].Name)
+			return nil
+		} else if t.ElemType != nil {
+			return t
 		}
-		err := typ.SetFields(fields)
-		if err != nil {
-			c.error(error_node, "Failed to set fields for type '%s': %v.", typ.Name(), err)
+
+		if len(type_expr.Fields) > 1 {
+			c.error(error_node, "Array type only has one single field (e.g. %s[%s]), multiple were provided (e.g. %s[%s, %s...]).",
+				t.Name(), type_expr.Fields[0].Name, t.Name(), type_expr.Fields[0].Name, type_expr.Fields[1].Name)
 			return nil
 		}
-	}
 
-	if len(type_expr.Returns) > 0 {
-		returns := make([]Type, 0, len(type_expr.Returns))
-		for _, return_expr := range type_expr.Returns {
-			return_typ := c.checkTypeExpr(error_node, *return_expr)
-			if return_typ == nil {
-				return nil
-			}
-			returns = append(returns, return_typ)
-		}
-		err := typ.SetReturns(returns)
-		if err != nil {
-			c.error(error_node, "Failed to set returns for type '%s': %v.", typ.Name(), err)
+		t.ElemType = c.checkTypeExpr(error_node, *type_expr.Fields[0])
+		if t.ElemType == nil {
 			return nil
 		}
+		return t
+	}
+
+	if Is[*TypeStruct](typ) {
+		t := As[*TypeStruct](typ)
+		if len(type_expr.Fields) > 0 {
+			c.error(error_node, "Struct types doesn't need fields when referenced.")
+			return nil
+		}
+
+		return t //TODO: implement Struct{fields...} stuff instead of only referencing
 	}
 
 	return typ

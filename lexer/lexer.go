@@ -1,8 +1,10 @@
 package lexer
 
 import (
-	"fmt"
 	. "smol/lexer/token"
+	. "smol/util"
+
+	"fmt"
 	"strconv"
 )
 
@@ -56,18 +58,18 @@ func (l *Lexer) Lex() ([]Token, bool) {
 	had_error := false
 
 	for l.c != 0 {
-		if isSpace(l.c) {
+		if IsSpace(l.c) {
 			l.next()
 			continue
 		}
 
-		if isAlpha(l.c) {
+		if IsAlpha(l.c) {
 			not_ok := !l.lexIdent()
 			had_error = had_error || not_ok
 			continue
 		}
 
-		if isDigit(l.c) {
+		if IsDigit(l.c) {
 			not_ok := !l.lexNumber() // for some reason, the Go compiler glitches the fuck out and doesnt run this function if I put it in directly
 			had_error = had_error || not_ok
 			continue
@@ -135,7 +137,7 @@ var keywordMap = map[string]TokenKind{
 
 func (l *Lexer) lexIdent() bool {
 	pos := l.pos
-	for isAlnum(l.c) {
+	for IsAlnum(l.c) {
 		l.next()
 	}
 
@@ -154,11 +156,11 @@ func (l *Lexer) lexNumber() bool {
 	pos := l.pos
 	dot_count := 0
 	contains_letters := false
-	for isAlnum(l.c) || l.c == '.' {
+	for IsAlnum(l.c) || l.c == '.' {
 		if l.c == '.' {
 			dot_count++
 		}
-		if isAlpha(l.c) {
+		if IsAlpha(l.c) {
 			contains_letters = true
 		}
 		l.next()
