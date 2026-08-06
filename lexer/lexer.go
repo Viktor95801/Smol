@@ -41,7 +41,13 @@ var singleCharTokMap = [...]TokenKind{
 	'*': OpMul,
 	'/': OpDiv,
 	'%': OpMod,
-	'^': OpPow,
+	'&': OpBitAnd,
+	'|': OpBitOr,
+	'^': OpBitXor,
+	'~': OpBitNot,
+	'>': OpGt,
+	'<': OpLt,
+	'!': OpNot,
 	',': TokComma,
 	';': TokSemi,
 	'(': TokLParen,
@@ -52,6 +58,19 @@ var singleCharTokMap = [...]TokenKind{
 	']': TokRBrack,
 	'=': TokAss,
 	':': TokColon,
+}
+
+var secondCharTokMap = [...]struct {
+	c    byte
+	kind TokenKind
+}{
+	OpMul:    {'*', OpPow},
+	OpGt:     {'=', OpGe},
+	OpLt:     {'=', OpLe},
+	TokAss:   {'=', OpEq},
+	OpNot:    {'=', OpNe},
+	OpBitAnd: {'&', OpAnd},
+	OpBitOr:  {'|', OpOr},
 }
 
 func (l *Lexer) Lex() ([]Token, bool) {
@@ -82,8 +101,18 @@ func (l *Lexer) Lex() ([]Token, bool) {
 		}
 
 		kind := singleCharTokMap[l.c]
+		//TODO: Ugly AF code, refactor later
 		if kind != 0 {
-			l.tokens = append(l.tokens, l.newTok(kind, string(l.c)))
+			if int(kind) < len(secondCharTokMap) {
+				if next_char := secondCharTokMap[kind]; next_char.c != 0 && l.pos+1 < len(l.input) && l.input[l.pos+1] == next_char.c {
+					l.tokens = append(l.tokens, l.newTok(next_char.kind, string(l.c)+string(next_char.c)))
+					l.next()
+				} else {
+					l.tokens = append(l.tokens, l.newTok(kind, string(l.c)))
+				}
+			} else {
+				l.tokens = append(l.tokens, l.newTok(kind, string(l.c)))
+			}
 		} else {
 			tok := l.newTok(TokInvalid, string(l.c))
 			had_error = true
@@ -128,8 +157,10 @@ var keywordMap = map[string]TokenKind{
 	"return":  KwReturn,
 	"print":   KwPrint,
 	"println": KwPrintln,
+	"input":   KwInput,
 	"let":     KwLet,
 	"if":      KwIf,
+	"while":   KwWhile,
 	"else":    KwElse,
 	"type":    KwType,
 	"struct":  KwStruct,

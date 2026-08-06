@@ -154,6 +154,10 @@ func (p *Parser) statement() (Statement, bool) {
 		return p.stmt_if()
 	}
 
+	if p.consume(KwWhile) {
+		return p.stmt_while()
+	}
+
 	if p.consume(KwType) {
 		return p.stmt_decl_type()
 	}
@@ -445,12 +449,36 @@ func (p *Parser) stmt_if() (Statement, bool) {
 	}, true
 }
 
+func (p *Parser) stmt_while() (Statement, bool) {
+	start := p.ptok.Pos
+	cond, ok := p.expression()
+	if !ok {
+		return nil, false
+	}
+
+	if !p.consume(TokLCurly) {
+		p.error("Expected '{'.")
+		return nil, false
+	}
+	body, ok := p.stmt_block()
+	if !ok {
+		return nil, false
+	}
+
+	return &StmtWhile{
+		Start:     start,
+		End:       p.ptok.Pos,
+		Condition: cond,
+		Body:      body,
+	}, true
+}
+
 func (p *Parser) expression() (Expression, bool) {
 	return p.assignment()
 }
 
 func (p *Parser) assignment() (Expression, bool) {
-	left, ok := p.term()
+	left, ok := p.logic_or()
 	if !ok {
 		return nil, false
 	}
@@ -479,6 +507,174 @@ func (p *Parser) assignment() (Expression, bool) {
 			Var:   variable,
 			Value: right,
 		}, true
+	}
+
+	return left, true
+}
+
+func (p *Parser) logic_or() (Expression, bool) {
+	left, ok := p.logic_and()
+	if !ok {
+		return nil, false
+	}
+
+	for p.ctok.OneOf(OpOr) {
+		op := p.ctok
+		p.next()
+		right, ok := p.logic_and()
+		if !ok {
+			return nil, false
+		}
+
+		left = &ExprBinary{
+			Op:    op,
+			Left:  left,
+			Right: right,
+		}
+	}
+
+	return left, true
+}
+
+func (p *Parser) logic_and() (Expression, bool) {
+	left, ok := p.bitwise_or()
+	if !ok {
+		return nil, false
+	}
+
+	for p.ctok.OneOf(OpAnd) {
+		op := p.ctok
+		p.next()
+		right, ok := p.bitwise_or()
+		if !ok {
+			return nil, false
+		}
+
+		left = &ExprBinary{
+			Op:    op,
+			Left:  left,
+			Right: right,
+		}
+	}
+
+	return left, true
+}
+
+func (p *Parser) bitwise_or() (Expression, bool) {
+	left, ok := p.bitwise_xor()
+	if !ok {
+		return nil, false
+	}
+
+	for p.ctok.OneOf(OpBitOr) {
+		op := p.ctok
+		p.next()
+		right, ok := p.bitwise_xor()
+		if !ok {
+			return nil, false
+		}
+
+		left = &ExprBinary{
+			Op:    op,
+			Left:  left,
+			Right: right,
+		}
+	}
+
+	return left, true
+}
+
+func (p *Parser) bitwise_xor() (Expression, bool) {
+	left, ok := p.bitwise_and()
+	if !ok {
+		return nil, false
+	}
+
+	for p.ctok.OneOf(OpBitXor) {
+		op := p.ctok
+		p.next()
+		right, ok := p.bitwise_and()
+		if !ok {
+			return nil, false
+		}
+
+		left = &ExprBinary{
+			Op:    op,
+			Left:  left,
+			Right: right,
+		}
+	}
+
+	return left, true
+}
+
+func (p *Parser) bitwise_and() (Expression, bool) {
+	left, ok := p.comparison_equal()
+	if !ok {
+		return nil, false
+	}
+
+	for p.ctok.OneOf(OpBitAnd) {
+		op := p.ctok
+		p.next()
+		right, ok := p.comparison_equal()
+		if !ok {
+			return nil, false
+		}
+
+		left = &ExprBinary{
+			Op:    op,
+			Left:  left,
+			Right: right,
+		}
+	}
+
+	return left, true
+}
+
+func (p *Parser) comparison_equal() (Expression, bool) {
+	left, ok := p.comparison()
+	if !ok {
+		return nil, false
+	}
+
+	for p.ctok.OneOf(OpEq, OpNe) {
+		op := p.ctok
+		p.next()
+		right, ok := p.comparison()
+		if !ok {
+			return nil, false
+		}
+
+		left = &ExprBinary{
+			Op:    op,
+			Left:  left,
+			Right: right,
+		}
+	}
+
+	return left, true
+}
+
+func (p *Parser) comparison() (Expression, bool) {
+	left, ok := p.term()
+	if !ok {
+		return nil, false
+	}
+
+	for p.ctok.OneOf(OpGt, OpGe, OpLt, OpLe) {
+		op := p.ctok
+		p.next()
+		right, ok := p.term()
+		if !ok {
+			return nil, false
+		}
+
+		left = &ExprBinary{
+			Op:    op,
+			Left:  left,
+			Right: right,
+		}
 	}
 
 	return left, true
@@ -557,7 +753,7 @@ func (p *Parser) power() (Expression, bool) {
 }
 
 func (p *Parser) unary() (Expression, bool) {
-	if !p.ctok.OneOf(OpAdd, OpSub) {
+	if !p.ctok.OneOf(OpAdd, OpSub, OpNot, OpBitNot) {
 		start := p.ctok.Pos
 		value, ok := p.primary()
 		if !ok {

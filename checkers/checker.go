@@ -1,6 +1,7 @@
 package checkers
 
 import (
+	. "smol/lexer/token"
 	p "smol/parser"
 	. "smol/parser/environment"
 	. "smol/util"
@@ -124,6 +125,15 @@ func (c *Checker) checkStmt(code p.Node) {
 		if n.Else != nil {
 			c.checkStmt(n.Else)
 		}
+	case *p.StmtWhile:
+		cond := c.checkExpr(n.Condition)
+		if cond == nil {
+			return
+		}
+		if !Is[*TypeBool](cond) {
+			c.error(n.Condition, "Expected bool, got '%s'.", cond.Name())
+		}
+		c.checkStmt(n.Body)
 	case *p.StmtReturn:
 		expr := c.checkExpr(n.Expr)
 		if expr == nil {
@@ -201,22 +211,71 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 			return nil
 		}
 
-		if !IsOneOf(left, NumberType, StringType, BoolType) || !IsEqual(right, left) {
-			c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
+		if n.Op.OneOf(OpAdd) {
+			if left.IsAssignableTo(NumberType) && right.IsAssignableTo(left) {
+				return NumberType
+			} else if left.IsAssignableTo(StringType) && right.IsAssignableTo(left) {
+				return StringType
+			} else {
+				c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
+				return nil
+			}
+		} else if n.Op.OneOf(OpEq, OpNe) {
+			if left.IsAssignableTo(NumberType) && right.IsAssignableTo(NumberType) {
+				return BoolType
+			} else if left.IsAssignableTo(StringType) && right.IsAssignableTo(StringType) {
+				return BoolType
+			} else if left.IsAssignableTo(BoolType) && right.IsAssignableTo(BoolType) {
+				return BoolType
+			} else {
+				c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
+				return nil
+			}
+		} else if n.Op.OneOf(OpGt, OpGe, OpLt, OpLe) {
+			if left.IsAssignableTo(NumberType) && right.IsAssignableTo(NumberType) {
+				return BoolType
+			} else {
+				c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
+				return nil
+			}
+		} else if n.Op.OneOf(OpSub, OpDiv, OpMul, OpMod, OpPow, OpBitAnd, OpBitOr, OpBitXor) {
+			if left.IsAssignableTo(NumberType) && right.IsAssignableTo(NumberType) {
+				return NumberType
+			} else {
+				c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
+				return nil
+			}
+		} else if n.Op.OneOf(OpAnd, OpOr) {
+			if left.IsAssignableTo(BoolType) && right.IsAssignableTo(BoolType) {
+				return BoolType
+			} else {
+				c.error(n.Right, "Type '%s' and '%s' aren't compatible.", left.Name(), right.Name())
+				return nil
+			}
+		} else {
+			panic("unknown operator")
 		}
-
-		return left
 	case *p.ExprUnary:
 		value := c.checkExpr(n.Value)
 		if value == nil {
 			return nil
 		}
 
-		if !IsOneOf(value, NumberType, BoolType) {
-			c.error(n.Value, "Expected number or bool, got '%s'.", value.Name())
+		if n.Op.OneOf(OpNot) {
+			if !value.IsAssignableTo(BoolType) {
+				c.error(n.Value, "Expected bool, got '%s'.", value.Name())
+				return nil
+			}
+			return BoolType
+		} else if n.Op.OneOf(OpAdd, OpSub, OpBitNot) {
+			if !value.IsAssignableTo(NumberType) {
+				c.error(n.Value, "Expected number, got '%s'.", value.Name())
+				return nil
+			}
+			return NumberType
+		} else {
+			panic("Unknown unary operator: " + n.Op.String())
 		}
-
-		return value
 	case *p.ExprLiteral:
 		return n.Value.Type()
 
@@ -225,21 +284,15 @@ func (c *Checker) checkExpr(code p.Expression) Type {
 		if array_type == nil {
 			return nil
 		}
-		for Is[*TypeDefined](array_type) {
-			array_type = As[*TypeDefined](array_type).Underlying
-		}
 		index_type := c.checkExpr(n.Index)
 		if index_type == nil {
 			return nil
 		}
-		for Is[*TypeDefined](index_type) {
-			index_type = As[*TypeDefined](index_type).Underlying
-		}
 
-		if !Is[*TypeNumber](index_type) {
+		if !index_type.IsAssignableTo(NumberType) {
 			c.errorEnd(n.Index, "Index must be number. Got '%s'.", index_type.Name())
 		}
-		if !Is[*TypeArray](array_type) {
+		if !array_type.IsAssignableTo(ArrayType) {
 			c.error(n.Array, "Expected indexed type, got '%s'.", array_type.Name())
 		}
 

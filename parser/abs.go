@@ -166,6 +166,20 @@ func (s *StmtIf) Pos() (TokenPosition, TokenPosition) {
 	return s.Start, s.End
 }
 
+type StmtWhile struct {
+	Start, End TokenPosition
+	Condition  Expression
+	Body       Statement
+}
+
+func (s *StmtWhile) String() string {
+	return "[while " + s.Condition.String() + " " + s.Body.String() + "]"
+}
+
+func (s *StmtWhile) Pos() (TokenPosition, TokenPosition) {
+	return s.Start, s.End
+}
+
 type StmtDeclType struct {
 	Start, End TokenPosition
 	Name       string

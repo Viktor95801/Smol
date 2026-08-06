@@ -50,6 +50,7 @@ const (
 	TokAss
 	TokColon
 
+	// numeric op
 	OpAdd
 	OpSub
 	OpMul
@@ -57,14 +58,34 @@ const (
 	OpMod
 	OpPow
 
+	// comparison op
+	OpGt // >
+	OpGe // >=
+	OpLt // <
+	OpLe // <=
+	OpEq // ==
+	OpNe // !=
+
+	// logic op
+	OpAnd // &&
+	OpOr  // ||
+	OpNot // !
+	// bitwise op
+	OpBitAnd // &
+	OpBitOr  // |
+	OpBitNot // ~
+	OpBitXor // ^
+
 	KwTrue
 	KwFalse
 
 	KwReturn
 	KwPrint
 	KwPrintln
+	KwInput
 	KwLet
 	KwIf
+	KwWhile
 	KwElse
 	KwType
 	KwStruct
@@ -89,16 +110,31 @@ var kindNames = [...]string{
 	OpDiv:     "OpDiv",
 	OpMod:     "OpMod",
 	OpPow:     "OpPow",
+	OpGt:      "OpGt",
+	OpGe:      "OpGe",
+	OpLt:      "OpLt",
+	OpLe:      "OpLe",
+	OpEq:      "OpEq",
+	OpNe:      "OpNeq",
+	OpAnd:     "OpAnd",
+	OpOr:      "OpOr",
+	OpNot:     "OpNot",
+	OpBitAnd:  "OpBitAnd",
+	OpBitOr:   "OpBitOr",
+	OpBitNot:  "OpBitNot",
+	OpBitXor:  "OpBitXor",
 	KwTrue:    "KwTrue",
 	KwFalse:   "KwFalse",
 	KwReturn:  "KwReturn",
 	KwPrint:   "KwPrint",
 	KwPrintln: "KwPrintln",
+	KwInput:   "KwInput",
 	KwIf:      "KwIf",
 	KwElse:    "KwElse",
 	KwLet:     "KwLet",
 	KwType:    "KwType",
 	KwStruct:  "KwStruct",
+	KwWhile:   "KwWhile",
 	TokAss:    "TokAss",
 	TokColon:  "TokColon",
 }
